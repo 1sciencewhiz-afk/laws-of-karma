@@ -1,7 +1,8 @@
+/** @jsxRuntime classic */
 import "@/game/r3f-devtag-patch";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Lightformer, Stars } from "@react-three/drei";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import React, { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Loka } from "@/game/data";
 import { STORY_TREES } from "@/game/data";
