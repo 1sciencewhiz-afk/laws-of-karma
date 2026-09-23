@@ -1,34 +1,46 @@
-import * as THREE from "three";
+import React from "react";
 
 /**
- * The dev tooling injects a `data-tsd-source` prop onto every JSX element.
+ * The preview tooling injects a `data-tsd-source` prop onto every JSX element.
  * react-three-fiber treats dashed props as "pierced" paths (data -> tsd -> source)
- * and throws when the intermediate objects do not exist, which crashes the scene
- * on any prop update. Giving three's base classes a lazy `data` bag makes the
- * assignment a harmless no-op.
+ * and throws on every prop update inside <Canvas>, blanking the scene.
+ *
+ * Fix: strip that debug prop from non-DOM (three.js) elements before React sees it.
  */
-const protos: Array<Record<string, unknown>> = [
-  THREE.Object3D.prototype as unknown as Record<string, unknown>,
-  THREE.Material.prototype as unknown as Record<string, unknown>,
-  THREE.BufferGeometry.prototype as unknown as Record<string, unknown>,
-  THREE.Texture.prototype as unknown as Record<string, unknown>,
-  THREE.Fog.prototype as unknown as Record<string, unknown>,
-  THREE.Color.prototype as unknown as Record<string, unknown>,
-];
+const TAG = "data-tsd-source";
 
-for (const proto of protos) {
-  if (proto && !("data" in proto)) {
-    Object.defineProperty(proto, "data", {
-      configurable: true,
-      get(this: Record<string, unknown>) {
-        if (!this["__devTagBag"]) this["__devTagBag"] = { tsd: {} };
-        return this["__devTagBag"];
-      },
-      set(this: Record<string, unknown>, value: unknown) {
-        this["__devTagBag"] = value;
-      },
-    });
-  }
+const isDomTag = (() => {
+  const cache = new Map<string, boolean>();
+  return (type: string) => {
+    if (typeof document === "undefined") return true;
+    let hit = cache.get(type);
+    if (hit === undefined) {
+      let ok = true;
+      try {
+        ok = !(document.createElement(type) instanceof HTMLUnknownElement);
+      } catch {
+        ok = false;
+      }
+      cache.set(type, ok);
+      hit = ok;
+    }
+    return hit;
+  };
+})();
+
+type CreateElement = typeof React.createElement;
+const R = React as unknown as { createElement: CreateElement; __devTagPatched?: boolean };
+
+if (!R.__devTagPatched) {
+  R.__devTagPatched = true;
+  const original = R.createElement.bind(React) as CreateElement;
+  R.createElement = ((type: unknown, props: Record<string, unknown> | null, ...children: unknown[]) => {
+    if (props && TAG in props && typeof type === "string" && !isDomTag(type)) {
+      const { [TAG]: _omit, ...rest } = props;
+      return original(type as never, rest as never, ...(children as never[]));
+    }
+    return original(type as never, props as never, ...(children as never[]));
+  }) as CreateElement;
 }
 
 export {};
