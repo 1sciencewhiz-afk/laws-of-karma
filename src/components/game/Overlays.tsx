@@ -1,4 +1,5 @@
-import { chooseOption, currentLoka, currentNode, nextLoka, setForm, toggleCoOp, toggleJournal, toggleMute, useGame } from "@/game/store";
+import { GITA_EXCERPTS, MOKSHA_THRESHOLD } from "@/game/data";
+import { chooseOption, rebirth, restartWheel, currentLoka, currentNode, nextLoka, setForm, toggleCoOp, toggleJournal, toggleMute, useGame } from "@/game/store";
 import { useNear } from "@/game/proximity";
 import { setTouch, clearTouch } from "@/game/input";
 import { sfx } from "@/game/audio";
@@ -92,6 +93,13 @@ export function HUD() {
               style={{ width: `${s.spiritKarma}%` }}
             />
           </div>
+          <div className="mt-2 grid grid-cols-2 gap-x-3 text-[10px] uppercase tracking-widest text-[oklch(0.78_0.05_300)]">
+            <span>Jnana {s.atman.jnana}</span>
+            <span>Vairagya {s.atman.vairagya}</span>
+            <div className="mt-1 h-1 rounded-full bg-[oklch(0.3_0.05_290)]"><div className="h-full rounded-full bg-[oklch(0.8_0.12_220)]" style={{ width: `${s.atman.jnana}%` }} /></div>
+            <div className="mt-1 h-1 rounded-full bg-[oklch(0.3_0.05_290)]"><div className="h-full rounded-full bg-[oklch(0.85_0.1_150)]" style={{ width: `${s.atman.vairagya}%` }} /></div>
+          </div>
+          <p className="mt-1.5 text-[10px] tracking-widest text-[oklch(0.7_0.04_300)]">LIFE {s.lives}</p>
         </div>
       </div>
 
@@ -208,6 +216,22 @@ export function JournalOverlay() {
             Close
           </button>
         </div>
+        <h3 className="mt-6 text-[10px] uppercase tracking-widest text-[oklch(0.75_0.05_300)]">From the Gita</h3>
+        <div className="mt-2 space-y-2">
+          {GITA_EXCERPTS.map((g) => (
+            <blockquote key={g.ref} className="border-l-2 border-[oklch(0.85_0.14_85_/_0.5)] pl-3 text-xs italic leading-relaxed text-[oklch(0.9_0.03_90)]">
+              {g.text}
+              <span className="mt-0.5 block not-italic text-[10px] text-[oklch(0.75_0.08_85)]">{g.ref}</span>
+            </blockquote>
+          ))}
+        </div>
+        <h3 className="mt-6 text-[10px] uppercase tracking-widest text-[oklch(0.75_0.05_300)]">Atman</h3>
+        <p className="mt-2 text-xs text-[oklch(0.88_0.02_90)]">
+          Jnana {s.atman.jnana} · Vairagya {s.atman.vairagya} · Sakam deeds {s.atman.sakamKarma} · Nishkama deeds {s.atman.nishkamaKarma}
+        </p>
+        <p className="mt-1 text-[11px] text-[oklch(0.72_0.04_300)]">
+          Moksha awaits in the last realm for one with {MOKSHA_THRESHOLD.jnana}+ wisdom, {MOKSHA_THRESHOLD.vairagya}+ detachment, and nothing left to give.
+        </p>
         <h3 className="mt-6 text-[10px] uppercase tracking-widest text-[oklch(0.75_0.05_300)]">Parables</h3>
         {s.journal.length === 0 && <p className="mt-2 text-xs text-[oklch(0.7_0.03_300)]">No parables unlocked yet.</p>}
         <div className="mt-2 space-y-3">
@@ -225,6 +249,67 @@ export function JournalOverlay() {
             <li key={k}>· {k.replace(/([A-Z])/g, " $1").toLowerCase()}</li>
           ))}
         </ul>
+      </div>
+    </div>
+  );
+}
+
+function Wheel({ spin }: { spin: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={`mx-auto h-28 w-28 ${spin}`} aria-hidden>
+      <circle cx="50" cy="50" r="44" fill="none" stroke="oklch(0.85 0.14 85)" strokeWidth="3" />
+      <circle cx="50" cy="50" r="8" fill="oklch(0.85 0.14 85)" />
+      {Array.from({ length: 8 }).map((_, i) => {
+        const a = (i * Math.PI) / 4;
+        return <line key={i} x1="50" y1="50" x2={50 + 44 * Math.cos(a)} y2={50 + 44 * Math.sin(a)} stroke="oklch(0.85 0.14 85)" strokeWidth="2" />;
+      })}
+    </svg>
+  );
+}
+
+export function AuditOverlay() {
+  const s = useGame();
+  if (!s.audit) return null;
+  const a = s.atman;
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-[oklch(0.06_0.04_290_/_0.85)] p-4">
+      <div className={`${panel} w-full max-w-md p-7 text-center`}>
+        <p className="text-[11px] uppercase tracking-[0.3em] text-[oklch(0.85_0.13_85)]">Karmic Audit</p>
+        <div className="mt-4"><Wheel spin="animate-[spin_4s_linear_infinite]" /></div>
+        <p className="mt-4 text-sm text-[oklch(0.94_0.02_90)]">{s.audit.reason}</p>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[oklch(0.88_0.02_90)]">
+          <span>Sakam deeds: {a.sakamKarma}</span>
+          <span>Nishkama deeds: {a.nishkamaKarma}</span>
+          <span className="text-[oklch(0.85_0.1_220)]">Jnana kept: {a.jnana}</span>
+          <span className="text-[oklch(0.85_0.1_150)]">Vairagya kept: {a.vairagya}</span>
+        </div>
+        <p className="mt-4 text-xs text-[oklch(0.8_0.05_300)]">
+          The wheel turns. You return as a <b className="text-[oklch(0.9_0.12_85)]">{s.audit.rebornAs === "jiva" ? "Jiva of light" : "Tortoise"}</b>.
+        </p>
+        <button type="button" onClick={() => { sfx.unlock(); rebirth(); }}
+          className="mt-6 rounded-xl border border-[oklch(0.85_0.14_85)] bg-[oklch(0.85_0.14_85_/_0.18)] px-6 py-2.5 text-sm font-medium text-[oklch(0.95_0.08_90)] hover:bg-[oklch(0.85_0.14_85_/_0.3)]">
+          Be reborn
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function MokshaOverlay() {
+  const s = useGame();
+  if (s.phase !== "MOKSHA") return null;
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center overflow-hidden p-4">
+      <div className="absolute inset-0 animate-[moksha_6s_ease-out_forwards] bg-[radial-gradient(circle,oklch(0.97_0.08_90)_0%,oklch(0.85_0.15_85)_35%,oklch(0.5_0.12_300_/_0.4)_70%,transparent_100%)]" />
+      <div className="relative max-w-md animate-[fadein_3s_ease-in_2s_both] text-center">
+        <Wheel spin="animate-[spin_12s_linear_infinite] opacity-60" />
+        <p className="mt-4 text-[11px] uppercase tracking-[0.4em] text-[oklch(0.3_0.1_60)]">Moksha</p>
+        <p className="mt-3 text-lg font-medium text-[oklch(0.25_0.08_60)]">The spark stops counting. The wave remembers it was always the ocean.</p>
+        <p className="mt-2 text-sm text-[oklch(0.35_0.08_60)]">You have merged into Brahman after {s.lives} {s.lives === 1 ? "life" : "lives"}.</p>
+        <button type="button" onClick={restartWheel}
+          className="mt-6 rounded-xl border border-[oklch(0.35_0.1_60)] px-6 py-2.5 text-sm text-[oklch(0.25_0.08_60)] hover:bg-[oklch(1_0_0_/_0.3)]">
+          Begin a new wheel
+        </button>
       </div>
     </div>
   );

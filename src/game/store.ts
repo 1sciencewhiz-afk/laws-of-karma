@@ -1,8 +1,11 @@
 import { useSyncExternalStore } from "react";
-import { LOKAS_DATA, STORY_TREES, type Effect, type Form, type Node } from "./data";
+import { LOKAS_DATA, MOKSHA_THRESHOLD, STORY_TREES, type Effect, type Form, type Node } from "./data";
 import { sfx, setMuted } from "./audio";
 
-export type Phase = "STORY_CHOICE" | "IN_GAME_DIALOGUE" | "WORLD_ACTION" | "RESOLUTION";
+export type Phase = "STORY_CHOICE" | "IN_GAME_DIALOGUE" | "WORLD_ACTION" | "RESOLUTION" | "MOKSHA";
+
+export type Atman = { jnana: number; vairagya: number; sakamKarma: number; nishkamaKarma: number };
+export type Audit = { reason: string; rebornAs: Form; lives: number } | null;
 
 export type JournalEntry = { title: string; text: string };
 
@@ -30,6 +33,10 @@ export type GameState = {
   /** hidden — never rendered in the UI */
   unseenBadKarma: number;
   doomAt: number | null;
+  atman: Atman;
+  fogOverride: string | null;
+  audit: Audit;
+  lives: number;
 };
 
 function initial(): GameState {
@@ -56,6 +63,10 @@ function initial(): GameState {
     resolutionText: "",
     unseenBadKarma: 0,
     doomAt: null,
+    atman: { jnana: 0, vairagya: 0, sakamKarma: 0, nishkamaKarma: 0 },
+    fogOverride: null,
+    audit: null,
+    lives: 1,
   };
 }
 
@@ -114,6 +125,17 @@ function applyEffect(e: Effect | undefined) {
   }
   if (e.form) patch.form = e.form;
   if (e.removeHazards) patch.hazardsCleared = true;
+  if (e.restoreHazards) patch.hazardsCleared = false;
+  if (e.fog) patch.fogOverride = e.fog;
+  if (e.jnana || e.vairagya || e.kind) {
+    const a = { ...state.atman };
+    a.jnana = Math.min(100, a.jnana + (e.jnana ?? 0));
+    a.vairagya = Math.min(100, a.vairagya + (e.vairagya ?? 0));
+    if (e.kind === "sakam") a.sakamKarma += 1;
+    if (e.kind === "nishkama") a.nishkamaKarma += 1;
+    if (e.kind === "adharma") a.vairagya = Math.max(0, a.vairagya - 10);
+    patch.atman = a;
+  }
   set(patch);
 }
 
@@ -144,8 +166,10 @@ export function openDialogue(treeId: string) {
 }
 
 export function spendKarma(amount: number) {
-  if (state.portalOpen) return;
-  const give = Math.min(amount, state.karma, 100 - state.spiritKarma);
+  const finalRealm = state.lokaIndex === LOKAS_DATA.length - 1;
+  if (state.portalOpen && !finalRealm) return;
+  const cap = finalRealm && state.portalOpen ? Infinity : 100 - state.spiritKarma;
+  const give = Math.min(amount, state.karma, cap);
   if (give <= 0) return;
   const spirit = state.spiritKarma + give;
   const opened = spirit >= 100;
@@ -157,7 +181,7 @@ export function damage(amount: number) {
   sfx.hurt();
   const karma = Math.max(0, state.karma - amount);
   if (karma <= 0) {
-    set({ karma: 25, respawnKey: state.respawnKey + 1 });
+    startAudit("Your karma pool ran dry. The body could hold you no longer.");
   } else {
     set({ karma, respawnKey: state.respawnKey + 1 });
   }
@@ -192,6 +216,16 @@ export function reachPortal() {
   if (state.phase !== "WORLD_ACTION" || !state.portalOpen) return;
   sfx.chord();
   const loka = currentLoka();
+  const a = state.atman;
+  if (
+    state.lokaIndex === LOKAS_DATA.length - 1 &&
+    a.jnana >= MOKSHA_THRESHOLD.jnana &&
+    a.vairagya >= MOKSHA_THRESHOLD.vairagya &&
+    state.karma <= 0
+  ) {
+    set({ phase: "MOKSHA" });
+    return;
+  }
   set({
     phase: "RESOLUTION",
     resolutionText: `${loka.name} releases you. You gave away everything you had counted, and the gate answered.`,
@@ -210,6 +244,8 @@ export function nextLoka() {
       silhouetteVisible: state.unseenBadKarma >= 10,
       doomAt: state.doomAt,
       muted: state.muted,
+      atman: state.atman,
+      lives: state.lives,
       levelKey: state.levelKey + 1,
     });
     return;
@@ -223,6 +259,7 @@ export function nextLoka() {
     spiritKarma: 0,
     portalOpen: false,
     hazardsCleared: false,
+    fogOverride: null,
     levelKey: state.levelKey + 1,
     respawnKey: state.respawnKey + 1,
   });
@@ -235,11 +272,27 @@ export function triggerCataclysm() {
 }
 
 export function resolveCataclysm() {
+  set({ cataclysm: false, unseenBadKarma: 0, silhouetteVisible: false, silhouetteMet: false });
+  startAudit("A meteor fell from the red sky. The good word came due.");
+}
+
+function startAudit(reason: string) {
+  const a = state.atman;
+  const rebornAs: Form = a.nishkamaKarma >= a.sakamKarma && state.unseenBadKarma < 6 ? "jiva" : "tortoise";
+  sfx.rumble();
+  set({ audit: { reason, rebornAs, lives: state.lives + 1 } });
+}
+
+/** Rebirth after the Karmic Audit: keeps jnana + vairagya only */
+export function rebirth() {
+  const au = state.audit;
+  if (!au) return;
+  sfx.chord();
   set({
-    cataclysm: false,
-    unseenBadKarma: 0,
-    silhouetteVisible: false,
-    silhouetteMet: false,
+    audit: null,
+    lives: au.lives,
+    form: au.rebornAs,
+    atman: { jnana: state.atman.jnana, vairagya: state.atman.vairagya, sakamKarma: 0, nishkamaKarma: 0 },
     karma: 100,
     spiritKarma: 0,
     portalOpen: false,
@@ -247,4 +300,8 @@ export function resolveCataclysm() {
     levelKey: state.levelKey + 1,
     phase: "WORLD_ACTION",
   });
+}
+
+export function restartWheel() {
+  set({ ...initial(), muted: state.muted, levelKey: state.levelKey + 1 });
 }

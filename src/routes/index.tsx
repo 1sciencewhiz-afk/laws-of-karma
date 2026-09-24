@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect } from "react";
-import { DialogueOverlay, HUD, JournalOverlay, ResolutionOverlay } from "@/components/game/Overlays";
+import { AuditOverlay, MokshaOverlay, DialogueOverlay, HUD, JournalOverlay, ResolutionOverlay } from "@/components/game/Overlays";
 import { bindKeyboard } from "@/game/input";
 import { setForm, toggleJournal, useGame } from "@/game/store";
 import { sfx } from "@/game/audio";
@@ -56,6 +56,8 @@ function SamsarasSpark3D() {
       <DialogueOverlay />
       <ResolutionOverlay />
       <JournalOverlay />
+      <AuditOverlay />
+      <MokshaOverlay />
       {s.cataclysm && (
         <div className="pointer-events-none fixed inset-0 z-40 animate-pulse bg-[oklch(0.35_0.2_25_/_0.35)]" />
       )}

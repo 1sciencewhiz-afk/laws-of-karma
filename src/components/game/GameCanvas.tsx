@@ -278,7 +278,7 @@ function PlayerRig({ groupRef }: { groupRef: React.RefObject<THREE.Group | null>
     const g = groupRef.current;
     if (!g) return;
     const s = getState();
-    const active = s.phase === "WORLD_ACTION" && !s.cataclysm;
+    const active = s.phase === "WORLD_ACTION" && !s.cataclysm && !s.audit;
     const input = readInput();
 
     // ---- movement
@@ -449,7 +449,7 @@ function Scene() {
   const state = useGame();
   const loka = currentLoka();
   const playerRef = useRef<THREE.Group>(null);
-  const skyColor = state.cataclysm ? "#1a0000" : loka.fogColor;
+  const skyColor = state.cataclysm ? "#1a0000" : state.phase === "MOKSHA" ? "#c9a24a" : (state.fogOverride ?? loka.fogColor);
 
   return (
     <>
