@@ -101,6 +101,14 @@ export type Effect = {
   journal?: { title: string; text: string };
   form?: Form;
   removeHazards?: boolean;
+  /** Atman progression */
+  jnana?: number;
+  vairagya?: number;
+  kind?: "sakam" | "nishkama" | "adharma";
+  /** world state: override fog/sky colour for this realm */
+  fog?: string;
+  /** world state: re-activate cleared hazards */
+  restoreHazards?: boolean;
 };
 
 export type Choice = { label: string; effect?: Effect; next: string | null };
@@ -113,38 +121,30 @@ export const STORY_TREES: Record<string, Tree> = {
   bhuloka_intro: {
     start: {
       speaker: "The Wheel",
-      text: "A spark of soul falls into Bhuloka. A drowning calf cries in the river while a merchant offers you a purse of gold to walk on.",
+      text: "A spark of soul falls into Bhuloka. On the riverbank a calf is drowning, and a crowd of villagers has gathered to watch.",
       choices: [
         {
-          label: "Wade in and lift the calf out.",
+          label: "Sakam Karma — Save the calf loudly, so the village sings your name.",
           effect: {
-            karma: 10,
-            flag: "savedCalf",
-            flagValue: true,
-            journal: {
-              title: "Parable of the Calf",
-              text: "You gave your time to a creature that could never repay you. The river remembered.",
-            },
+            kind: "sakam", karma: 10, jnana: 5, flag: "praisedHero",
+            journal: { title: "Parable of the Applause", text: "The calf lived. You kept the cheering. The deed was good; the grip on it was not." },
           },
           next: "form",
         },
         {
-          label: "Take the gold and keep walking.",
+          label: "Nishkama Karma — Lift the calf out quietly and walk on before anyone thanks you.",
           effect: {
-            karma: -5,
-            badKarma: 4,
-            flag: "tookGold",
-            flagValue: true,
-            journal: {
-              title: "Parable of the Purse",
-              text: "The purse was light. Something else grew heavy, though you could not name it.",
-            },
+            kind: "nishkama", jnana: 20, vairagya: 25, flag: "savedCalf", fog: "#1d1a4a", removeHazards: true,
+            journal: { title: "Parable of the Calf", text: "You gave your time to a creature that could never repay you. The river remembered, and the thorns withdrew." },
           },
           next: "form",
         },
         {
-          label: "Call for help, then move on.",
-          effect: { badKarma: 1, journal: { title: "Parable of the Shout", text: "A shout is cheaper than wet feet." } },
+          label: "Adharma — Sell the drowning calf's rope to a merchant and pocket the gold.",
+          effect: {
+            kind: "adharma", karma: 5, badKarma: 5, flag: "soldRope", fog: "#2a1030",
+            journal: { title: "Parable of the Purse", text: "The purse was light. Something else grew heavy, though you could not name it." },
+          },
           next: "form",
         },
       ],
@@ -161,25 +161,29 @@ export const STORY_TREES: Record<string, Tree> = {
   patala_intro: {
     start: {
       speaker: "The Wheel",
-      text: "Patala's crimson fog closes in. A chained spirit begs you to break its bonds — but the chains hold back the thorn-fields too.",
+      text: "Patala's crimson fog closes in. A starving naga child blocks the narrow path, clutching the last lamp of oil.",
       choices: [
         {
-          label: "Break the chains. Let it be free.",
+          label: "Sakam Karma — Give it food, then demand the lamp as payment.",
           effect: {
-            karma: 5,
-            flag: "freedSpirit",
-            flagValue: true,
-            journal: { title: "Parable of the Chain", text: "Freedom given is never lost, only relocated." },
+            kind: "sakam", karma: 5, jnana: 5, flag: "tradedLamp",
+            journal: { title: "Parable of the Bargain", text: "A kindness with a price tag is a sale. Still, the child ate." },
           },
           next: "form",
         },
         {
-          label: "Leave it bound. Your path is safer.",
+          label: "Nishkama Karma — Give it your food and your own light, and go on in the dark.",
           effect: {
-            badKarma: 5,
-            flag: "leftBound",
-            flagValue: true,
-            journal: { title: "Parable of the Safe Road", text: "You kept the road clean and the debt unpaid." },
+            kind: "nishkama", jnana: 25, vairagya: 25, flag: "gaveLight", fog: "#2c1030", removeHazards: true,
+            journal: { title: "Parable of the Lamp", text: "You walked on without light and found the thorns had parted for you." },
+          },
+          next: "form",
+        },
+        {
+          label: "Adharma — Snatch the lamp and push the child aside.",
+          effect: {
+            kind: "adharma", badKarma: 6, flag: "stoleLamp", fog: "#3a0508", restoreHazards: true,
+            journal: { title: "Parable of the Stolen Flame", text: "The lamp burned brighter in your hand. The fog grew redder behind you." },
           },
           next: "form",
         },
@@ -218,6 +222,7 @@ export const STORY_TREES: Record<string, Tree> = {
           label: "Thank you, teacher.",
           effect: {
             karma: 10,
+            jnana: 15,
             journal: { title: "The Rishi's Teaching", text: "Hold 'E' by the shadow spirit until your karma is gone. Emptiness opens the gate." },
           },
           next: null,
@@ -240,6 +245,8 @@ export const STORY_TREES: Record<string, Tree> = {
           effect: {
             removeHazards: true,
             karma: -10,
+            vairagya: 15,
+            kind: "nishkama",
             flag: "sparedAsura",
             flagValue: true,
             journal: { title: "Parable of the Asura", text: "You paid in karma; the thorns withdrew. Trust is a currency too." },
@@ -277,3 +284,13 @@ export const STORY_TREES: Record<string, Tree> = {
     },
   },
 };
+
+export const GITA_EXCERPTS: { ref: string; text: string }[] = [
+  { ref: "Bhagavad Gita 2.47", text: "You have a right to your actions, but never to the fruits of your actions." },
+  { ref: "Bhagavad Gita 2.22", text: "As a person puts on new garments, giving up old ones, the soul accepts new bodies, giving up the old." },
+  { ref: "Bhagavad Gita 3.19", text: "Therefore, without attachment, always perform the work that has to be done." },
+  { ref: "Bhagavad Gita 6.5", text: "Lift yourself by your own self; the self alone is the friend of the self, and the self alone is its enemy." },
+  { ref: "Bhagavad Gita 18.66", text: "Abandon all varieties of duty and take refuge in Me alone. Do not fear." },
+];
+
+export const MOKSHA_THRESHOLD = { jnana: 80, vairagya: 80 };
