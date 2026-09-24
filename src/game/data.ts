@@ -1,296 +1,248 @@
-export type Form = "jiva" | "tortoise";
+export type Form = "animal" | "merchant" | "prince" | "sage";
+export type Seed = "nishkama" | "sakam" | "adharma";
 
-export type Box = {
-  x: number;
-  z: number;
-  w: number;
-  d: number;
-  /** stepping here silently adds hidden bad karma */
-  forbidden?: boolean;
-};
-
+export type Box = { x: number; z: number; w: number; d: number };
 export type Platform = { x: number; y: number; z: number; w: number; d: number };
+export type V3 = [number, number, number];
 
-export type NpcSpot = { id: string; x: number; z: number; treeId: string; label: string };
-
-export type Loka = {
-  id: string;
-  name: string;
+export type FormInfo = {
+  id: Form;
+  title: string;
   subtitle: string;
-  storyTreeId: string;
-  ground: { w: number; d: number };
-  groundColor: string;
-  fogColor: string;
-  fogNear: number;
-  fogFar: number;
+  scenario: string;
+  speed: number;
+  jump: number; // 0 = cannot jump
+  lifespan: number; // seconds of life
+  fog: string;
+  ground: string;
   ambient: number;
-  start: [number, number, number];
-  platforms: Platform[];
-  hazards: Box[];
-  npcs: NpcSpot[];
-  spirit: [number, number, number];
-  portal: [number, number, number];
+  objectives: string[];
 };
 
-export const LOKAS_DATA: Loka[] = [
-  {
-    id: "bhuloka",
-    name: "Bhuloka",
-    subtitle: "The Earthly Realm",
-    storyTreeId: "bhuloka_intro",
-    ground: { w: 70, d: 70 },
-    groundColor: "#2a2352",
-    fogColor: "#1b1440",
-    fogNear: 18,
-    fogFar: 72,
-    ambient: 0.45,
-    start: [0, 1.2, 22],
-    platforms: [
-      { x: -8, y: 1.2, z: 8, w: 7, d: 7 },
-      { x: 9, y: 2.2, z: 2, w: 6, d: 6 },
-      { x: -2, y: 3.2, z: -10, w: 8, d: 6 },
-    ],
-    hazards: [
-      { x: -9, z: 13, w: 14, d: 4 },
-      { x: -14, z: -2, w: 5, d: 12 },
-      { x: 14, z: -12, w: 8, d: 6, forbidden: true },
-    ],
-    npcs: [{ id: "rishi", x: -12, z: 16, treeId: "rishi", label: "Rishi Agasti" }],
-    spirit: [0, 1.4, -20],
-    portal: [0, 2, -27],
+/** All form data. Every life takes place in its own procedural 3D scenario. */
+export const FORMS: Record<Form, FormInfo> = {
+  prince: {
+    id: "prince",
+    title: "Kshatriya Prince",
+    subtitle: "Balanced duty and valor",
+    scenario: "Kurukshetra — 5,000 soldiers await your word. Your own teacher leads the opposing army.",
+    speed: 8,
+    jump: 8,
+    lifespan: 240,
+    fog: "#3a2a4a",
+    ground: "#6b5238",
+    ambient: 0.55,
+    objectives: ["Walk to your mentor's chariot across the field", "Decide how you will fight"],
   },
-  {
-    id: "patala",
-    name: "Patala",
-    subtitle: "The Underworld",
-    storyTreeId: "patala_intro",
-    ground: { w: 70, d: 70 },
-    groundColor: "#3a1430",
-    fogColor: "#2a0a18",
-    fogNear: 12,
-    fogFar: 58,
-    ambient: 0.3,
-    start: [-20, 1.2, 22],
-    platforms: [
-      { x: -12, y: 1.6, z: 10, w: 6, d: 6 },
-      { x: 0, y: 3.0, z: 4, w: 6, d: 6 },
-      { x: 12, y: 1.8, z: -2, w: 6, d: 6 },
-      { x: 2, y: 4.2, z: -12, w: 7, d: 7 },
-    ],
-    hazards: [
-      { x: -6, z: 16, w: 16, d: 4 },
-      { x: 6, z: 6, w: 10, d: 6 },
-      { x: -16, z: -12, w: 10, d: 8 },
-      { x: 18, z: 14, w: 8, d: 8, forbidden: true },
-    ],
-    npcs: [{ id: "asura", x: 16, z: 8, treeId: "asura", label: "Bound Asura" }],
-    spirit: [0, 1.4, -21],
-    portal: [0, 2, -28],
+  merchant: {
+    id: "merchant",
+    title: "Grain Merchant",
+    subtitle: "Reaped from wealth-seeking deeds",
+    scenario: "A three-year drought. Your silos are full; the village is hungry.",
+    speed: 7,
+    jump: 0,
+    lifespan: 240,
+    fog: "#6a4a2a",
+    ground: "#8a6a3e",
+    ambient: 0.6,
+    objectives: ["Hear the village elder", "Open all three silos"],
   },
-];
+  animal: {
+    id: "animal",
+    title: "Ox of the Field",
+    subtitle: "Bound by past adharma",
+    scenario: "A body of burden. Cross the thorn fields to reach the watering pool and survive.",
+    speed: 7,
+    jump: 10,
+    lifespan: 200,
+    fog: "#2a3a2e",
+    ground: "#3e4a30",
+    ambient: 0.5,
+    objectives: ["Cross the thorn fields to the watering pool"],
+  },
+  sage: {
+    id: "sage",
+    title: "Forest Sage",
+    subtitle: "Ripened from selfless action and wisdom",
+    scenario: "A quiet ashram in the deep forest. Align the mirrors so the dawn light reaches the crystal.",
+    speed: 7,
+    jump: 8,
+    lifespan: 260,
+    fog: "#1f2f4a",
+    ground: "#26382c",
+    ambient: 0.55,
+    objectives: ["Align the three mirrors to guide the light", "Answer your disciple"],
+  },
+};
 
-/* ------------------------------------------------------------------ */
-/* Branching dialogue trees                                            */
-/* ------------------------------------------------------------------ */
+export const START: V3 = [0, 1, 14];
+export const GROUND = 64;
+export const SIL_POS: V3 = [-26, 2.6, -26];
+
+/* ------------------------- scenario layout data ------------------------- */
+
+export const PRINCE = { mentor: [0, 0, -8] as V3 };
+
+export const MERCHANT = {
+  elder: [0, 0, 4] as V3,
+  silos: [
+    [-11, 0, -8],
+    [0, 0, -15],
+    [11, 0, -8],
+  ] as V3[],
+};
+
+export const ANIMAL = {
+  pool: [0, 0, -24] as V3,
+  calf: [10, 0, 6] as V3,
+  hazards: [
+    { x: 0, z: -3, w: 64, d: 6 },
+    { x: 0, z: -15, w: 64, d: 6 },
+  ] as Box[],
+  platforms: [
+    { x: -6, y: 1.0, z: -3, w: 3, d: 2 },
+    { x: 6, y: 1.0, z: -3, w: 3, d: 2 },
+    { x: 0, y: 1.0, z: -15, w: 3, d: 2 },
+  ] as Platform[],
+};
+
+export const SAGE = {
+  disciple: [10, 0, 8] as V3,
+  source: [-14, 1.6, -2] as V3,
+  mirrors: [
+    [-4, 1.6, -2],
+    [-4, 1.6, -14],
+    [8, 1.6, -14],
+  ] as V3[],
+  /** correct rotation step (0–3) for each mirror */
+  solution: [1, 3, 2],
+  crystal: [8, 1.6, -24] as V3,
+  spirit: [0, 0, -22] as V3,
+};
+
+/* ------------------------------ dialogue ------------------------------ */
 
 export type Effect = {
-  karma?: number;
-  badKarma?: number;
-  flag?: string;
-  flagValue?: boolean;
-  journal?: { title: string; text: string };
-  form?: Form;
-  removeHazards?: boolean;
-  /** Atman progression */
+  seed?: Seed;
   jnana?: number;
   vairagya?: number;
-  kind?: "sakam" | "nishkama" | "adharma";
-  /** world state: override fog/sky colour for this realm */
-  fog?: string;
-  /** world state: re-activate cleared hazards */
-  restoreHazards?: boolean;
+  badKarma?: number;
+  journal?: string;
+  complete?: boolean;
+  unlockSilos?: boolean;
+  hoard?: boolean;
 };
 
-export type Choice = { label: string; effect?: Effect; next: string | null };
-
+export type Choice = { label: string; tag?: Seed; effect?: Effect; next?: string };
 export type Node = { speaker: string; text: string; choices: Choice[] };
-
 export type Tree = Record<string, Node>;
 
 export const STORY_TREES: Record<string, Tree> = {
-  bhuloka_intro: {
+  mentor: {
     start: {
-      speaker: "The Wheel",
-      text: "A spark of soul falls into Bhuloka. On the riverbank a calf is drowning, and a crowd of villagers has gathered to watch.",
+      speaker: "Drona, your teacher",
+      text: "So, my student stands against me. Five thousand men wait on your signal, and five thousand on mine. What will you do, Prince?",
       choices: [
         {
-          label: "Sakam Karma — Save the calf loudly, so the village sings your name.",
-          effect: {
-            kind: "sakam", karma: 10, jnana: 5, flag: "praisedHero",
-            journal: { title: "Parable of the Applause", text: "The calf lived. You kept the cheering. The deed was good; the grip on it was not." },
-          },
-          next: "form",
+          label: "Fight because it is my duty, and give up any claim to the outcome.",
+          tag: "nishkama",
+          effect: { seed: "nishkama", jnana: 10, vairagya: 12, journal: "As a prince, you fought out of duty and let go of victory.", complete: true },
+          next: "nishkama",
         },
         {
-          label: "Nishkama Karma — Lift the calf out quietly and walk on before anyone thanks you.",
-          effect: {
-            kind: "nishkama", jnana: 20, vairagya: 25, flag: "savedCalf", fog: "#1d1a4a", removeHazards: true,
-            journal: { title: "Parable of the Calf", text: "You gave your time to a creature that could never repay you. The river remembered, and the thorns withdrew." },
-          },
-          next: "form",
+          label: "Fight for glory. Songs will be sung of my conquest.",
+          tag: "sakam",
+          effect: { seed: "sakam", jnana: 3, vairagya: -4, journal: "As a prince, you fought for fame and conquest.", complete: true },
+          next: "sakam",
         },
         {
-          label: "Adharma — Sell the drowning calf's rope to a merchant and pocket the gold.",
-          effect: {
-            kind: "adharma", karma: 5, badKarma: 5, flag: "soldRope", fog: "#2a1030",
-            journal: { title: "Parable of the Purse", text: "The purse was light. Something else grew heavy, though you could not name it." },
-          },
-          next: "form",
+          label: "Drop my bow and flee, leaving my soldiers to die.",
+          tag: "adharma",
+          effect: { seed: "adharma", vairagya: -8, badKarma: 4, journal: "As a prince, you deserted your army.", complete: true },
+          next: "adharma",
         },
       ],
     },
-    form: {
-      speaker: "The Wheel",
-      text: "Choose the body you will wear through this realm.",
+    nishkama: { speaker: "Drona", text: "Then fight without hatred. I am proud of you, whatever happens.", choices: [{ label: "Raise the conch." }] },
+    sakam: { speaker: "Drona", text: "Glory is a river. It never keeps its shape.", choices: [{ label: "Sound the drums." }] },
+    adharma: { speaker: "Drona", text: "The men who trusted you will remember this. So will the wheel.", choices: [{ label: "Run." }] },
+  },
+  elder: {
+    start: {
+      speaker: "Village Elder",
+      text: "Merchant, the wells are dust and the children are thin. Your silos hold enough for all of us. What will you do?",
       choices: [
-        { label: "Jiva — swift light, fragile.", effect: { form: "jiva" }, next: null },
-        { label: "Tortoise — slow shell, unharmed by thorns.", effect: { form: "tortoise" }, next: null },
+        {
+          label: "Open the silos to everyone. Nothing is owed.",
+          tag: "nishkama",
+          effect: { seed: "nishkama", jnana: 8, vairagya: 12, unlockSilos: true, journal: "As a merchant, you gave your grain freely during the famine." },
+        },
+        {
+          label: "Sell the grain at a fair price, and make sure they remember my generosity.",
+          tag: "sakam",
+          effect: { seed: "sakam", jnana: 3, vairagya: -3, unlockSilos: true, journal: "As a merchant, you traded grain for praise and profit." },
+        },
+        {
+          label: "Hoard it. Prices will triple next month.",
+          tag: "adharma",
+          effect: { seed: "adharma", vairagya: -8, badKarma: 4, unlockSilos: true, hoard: true, journal: "As a merchant, you hoarded grain while the village starved." },
+        },
       ],
     },
   },
-  patala_intro: {
+  calf: {
     start: {
-      speaker: "The Wheel",
-      text: "Patala's crimson fog closes in. A starving naga child blocks the narrow path, clutching the last lamp of oil.",
+      speaker: "A trapped calf",
+      text: "A calf is caught in the thorns, bleating. The herd has moved on. You are thirsty and tired.",
       choices: [
-        {
-          label: "Sakam Karma — Give it food, then demand the lamp as payment.",
-          effect: {
-            kind: "sakam", karma: 5, jnana: 5, flag: "tradedLamp",
-            journal: { title: "Parable of the Bargain", text: "A kindness with a price tag is a sale. Still, the child ate." },
-          },
-          next: "form",
-        },
-        {
-          label: "Nishkama Karma — Give it your food and your own light, and go on in the dark.",
-          effect: {
-            kind: "nishkama", jnana: 25, vairagya: 25, flag: "gaveLight", fog: "#2c1030", removeHazards: true,
-            journal: { title: "Parable of the Lamp", text: "You walked on without light and found the thorns had parted for you." },
-          },
-          next: "form",
-        },
-        {
-          label: "Adharma — Snatch the lamp and push the child aside.",
-          effect: {
-            kind: "adharma", badKarma: 6, flag: "stoleLamp", fog: "#3a0508", restoreHazards: true,
-            journal: { title: "Parable of the Stolen Flame", text: "The lamp burned brighter in your hand. The fog grew redder behind you." },
-          },
-          next: "form",
-        },
-      ],
-    },
-    form: {
-      speaker: "The Wheel",
-      text: "Choose the body you will wear through the underworld.",
-      choices: [
-        { label: "Jiva — swift light, fragile.", effect: { form: "jiva" }, next: null },
-        { label: "Tortoise — slow shell, unharmed by thorns.", effect: { form: "tortoise" }, next: null },
+        { label: "Break the thorns with your horns and free it.", tag: "nishkama", effect: { seed: "nishkama", jnana: 5, vairagya: 8, journal: "As an ox, you freed a trapped calf." } },
+        { label: "Free it, hoping the herd will let you lead.", tag: "sakam", effect: { seed: "sakam", jnana: 2, journal: "As an ox, you helped a calf to gain status in the herd." } },
+        { label: "Trample past it toward the water.", tag: "adharma", effect: { seed: "adharma", vairagya: -6, badKarma: 3, journal: "As an ox, you trampled a helpless calf." } },
       ],
     },
   },
-  rishi: {
+  disciple: {
     start: {
-      speaker: "Rishi Agasti",
-      text: "Little spark. The shadow at the gate is not your enemy — it is hungry for what you refuse to give away.",
+      speaker: "Young Disciple",
+      text: "Guruji, the kings offer gold for your teaching. Should the wisdom of the light be sold, kept, or given?",
       choices: [
-        {
-          label: "What should I give?",
-          next: "teach",
-        },
-        {
-          label: "I have nothing to spare.",
-          effect: { badKarma: 2 },
-          next: "warn",
-        },
+        { label: "Given freely to anyone who asks.", tag: "nishkama", effect: { seed: "nishkama", jnana: 12, vairagya: 12, journal: "As a sage, you taught freely.", complete: true } },
+        { label: "Taught to kings, so our ashram grows famous.", tag: "sakam", effect: { seed: "sakam", jnana: 4, vairagya: -4, journal: "As a sage, you taught for renown.", complete: true } },
+        { label: "Kept hidden. The foolish do not deserve it.", tag: "adharma", effect: { seed: "adharma", vairagya: -8, badKarma: 4, journal: "As a sage, you hoarded wisdom out of contempt.", complete: true } },
       ],
-    },
-    teach: {
-      speaker: "Rishi Agasti",
-      text: "Your karma. All hundred grains of it. Empty yourself at the gate and it will open.",
-      choices: [
-        {
-          label: "Thank you, teacher.",
-          effect: {
-            karma: 10,
-            jnana: 15,
-            journal: { title: "The Rishi's Teaching", text: "Hold 'E' by the shadow spirit until your karma is gone. Emptiness opens the gate." },
-          },
-          next: null,
-        },
-      ],
-    },
-    warn: {
-      speaker: "Rishi Agasti",
-      text: "Then you will carry it. Weight does not vanish because you stop counting it.",
-      choices: [{ label: "Leave.", next: null }],
-    },
-  },
-  asura: {
-    start: {
-      speaker: "Bound Asura",
-      text: "You smell of daylight. Cut me loose and I will clear the thorns from your road.",
-      choices: [
-        {
-          label: "Free him and trust the offer.",
-          effect: {
-            removeHazards: true,
-            karma: -10,
-            vairagya: 15,
-            kind: "nishkama",
-            flag: "sparedAsura",
-            flagValue: true,
-            journal: { title: "Parable of the Asura", text: "You paid in karma; the thorns withdrew. Trust is a currency too." },
-          },
-          next: "freed",
-        },
-        {
-          label: "Refuse and walk away.",
-          effect: { badKarma: 2 },
-          next: "refused",
-        },
-        {
-          label: "Mock him and kick the chain.",
-          effect: { badKarma: 4, journal: { title: "Parable of the Kick", text: "Cruelty to the bound is cruelty to yourself, delayed." } },
-          next: "refused",
-        },
-      ],
-    },
-    freed: {
-      speaker: "Bound Asura",
-      text: "The thorns sleep. Go, spark — and remember who unbound you.",
-      choices: [{ label: "Go.", next: null }],
-    },
-    refused: {
-      speaker: "Bound Asura",
-      text: "Then walk the thorns yourself. They were made from refusals like yours.",
-      choices: [{ label: "Leave.", next: null }],
     },
   },
   silhouette: {
     start: {
       speaker: "???",
       text: "Have you heard the good word?",
-      choices: [{ label: "…", next: null }],
+      choices: [{ label: "…" }],
     },
   },
 };
 
+export const MOKSHA_THRESHOLD = { jnana: 80, vairagya: 80 };
+
 export const GITA_EXCERPTS: { ref: string; text: string }[] = [
-  { ref: "Bhagavad Gita 2.47", text: "You have a right to your actions, but never to the fruits of your actions." },
-  { ref: "Bhagavad Gita 2.22", text: "As a person puts on new garments, giving up old ones, the soul accepts new bodies, giving up the old." },
-  { ref: "Bhagavad Gita 3.19", text: "Therefore, without attachment, always perform the work that has to be done." },
-  { ref: "Bhagavad Gita 6.5", text: "Lift yourself by your own self; the self alone is the friend of the self, and the self alone is its enemy." },
-  { ref: "Bhagavad Gita 18.66", text: "Abandon all varieties of duty and take refuge in Me alone. Do not fear." },
+  { ref: "Bhagavad Gita 2.47", text: "You have a right to your actions, but never to the fruits of your actions. Do not let the fruit be your motive, and do not be attached to inaction." },
+  { ref: "Bhagavad Gita 2.22", text: "As a person puts on new garments, giving up old ones, the soul similarly accepts new bodies, giving up the old and useless ones." },
+  { ref: "Bhagavad Gita 3.19", text: "Therefore, without attachment, always do the work that must be done; by working without attachment one attains the Supreme." },
+  { ref: "Bhagavad Gita 4.37", text: "As a blazing fire turns wood to ashes, so the fire of knowledge burns all karma to ashes." },
+  { ref: "Bhagavad Gita 6.5", text: "Lift yourself by your own self; do not degrade yourself. The self is its own friend, and the self is its own enemy." },
+  { ref: "Bhagavad Gita 18.66", text: "Abandon all varieties of dharma and simply surrender unto Me. I shall deliver you from all sinful reactions; do not fear." },
 ];
 
-export const MOKSHA_THRESHOLD = { jnana: 80, vairagya: 80 };
+export const GLOSSARY: { term: string; def: string }[] = [
+  { term: "Karma", def: "Action, and the seed of consequence every action plants." },
+  { term: "Nishkama Karma", def: "Selfless action done as duty, without craving its fruit." },
+  { term: "Sakam Karma", def: "Good action done for reward, praise or gain. It binds you to worldly lives." },
+  { term: "Adharma", def: "Action against righteousness: harm, desertion, greed. It drags the soul into lower births." },
+  { term: "Dharma", def: "Your rightful duty and the cosmic order that sustains all beings." },
+  { term: "Samsara", def: "The endless wheel of birth, death and rebirth." },
+  { term: "Atman", def: "The eternal self that passes from body to body." },
+  { term: "Jnana", def: "Wisdom: direct knowledge of the self and the real." },
+  { term: "Vairagya", def: "Detachment: freedom from craving and aversion." },
+  { term: "Kshatriya", def: "The warrior-ruler order, whose dharma is to protect." },
+  { term: "Moksha", def: "Liberation from samsara: the Atman merging into Brahman." },
+  { term: "Brahman", def: "The infinite, undivided reality underlying all things." },
+];
