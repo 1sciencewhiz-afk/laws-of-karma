@@ -142,3 +142,12 @@
     color: var(--color-foreground);
   }
 }
+
+@keyframes moksha {
+  from { transform: scale(0.05); opacity: 0; }
+  to { transform: scale(3); opacity: 1; }
+}
+@keyframes fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

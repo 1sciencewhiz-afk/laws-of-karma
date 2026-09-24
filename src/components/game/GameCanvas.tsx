@@ -278,7 +278,7 @@ function PlayerRig({ groupRef }: { groupRef: React.RefObject<THREE.Group | null>
     const g = groupRef.current;
     if (!g) return;
     const s = getState();
-    const active = s.phase === "WORLD_ACTION" && !s.cataclysm;
+    const active = s.phase === "WORLD_ACTION" && !s.cataclysm && !s.audit;
     const input = readInput();
 
     // ---- movement
