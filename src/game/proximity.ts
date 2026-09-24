@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-export type Near = { kind: "npc" | "spirit" | "silhouette" | "portal"; id: string; label: string } | null;
+export type Near = { kind: string; id: string; label: string } | null;
 
 let near: Near = null;
 const listeners = new Set<() => void>();
