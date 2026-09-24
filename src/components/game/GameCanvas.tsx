@@ -449,7 +449,7 @@ function Scene() {
   const state = useGame();
   const loka = currentLoka();
   const playerRef = useRef<THREE.Group>(null);
-  const skyColor = state.cataclysm ? "#1a0000" : loka.fogColor;
+  const skyColor = state.cataclysm ? "#1a0000" : state.phase === "MOKSHA" ? "#c9a24a" : (state.fogOverride ?? loka.fogColor);
 
   return (
     <>
