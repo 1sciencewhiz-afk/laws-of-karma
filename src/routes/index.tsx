@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect } from "react";
-import { AuditOverlay, MokshaOverlay, DialogueOverlay, HUD, JournalOverlay, ResolutionOverlay } from "@/components/game/Overlays";
+import { AuditOverlay, DialogueOverlay, HUD, IntroOverlay, JournalOverlay, MokshaOverlay } from "@/components/game/Overlays";
 import { bindKeyboard } from "@/game/input";
-import { setForm, toggleJournal, useGame } from "@/game/store";
+import { tick, toggleJournal, useGame } from "@/game/store";
 import { sfx } from "@/game/audio";
 
 const GameCanvas = lazy(() => import("@/components/game/GameCanvas"));
@@ -11,34 +11,34 @@ export const Route = createFileRoute("/")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Samsara's Spark 3D — Cosmic Karma Platformer" },
+      { title: "Laws of Karma — A 3D Journey Through Samsara" },
       {
         name: "description",
         content:
-          "Guide a glowing Jiva through 3D cosmic lokas: choose your path in branching parables, swap between light and tortoise forms, and pour your karma into the shadow spirit to open the gate.",
+          "Live as prince, merchant, ox or sage. Your deeds, not your choices, decide each rebirth — until you give everything away and reach Moksha.",
       },
-      { property: "og:title", content: "Samsara's Spark 3D — Cosmic Karma Platformer" },
-      {
-        property: "og:description",
-        content: "A 3D narrative platformer of reincarnation, sacrifice and hidden consequence.",
-      },
+      { property: "og:title", content: "Laws of Karma — A 3D Journey Through Samsara" },
+      { property: "og:description", content: "A 3D narrative game of karma, rebirth and liberation." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: SamsarasSpark3D,
+  component: LawsOfKarma,
 });
 
-function SamsarasSpark3D() {
+function LawsOfKarma() {
   const s = useGame();
 
   useEffect(() => {
-    return bindKeyboard((code) => {
-      if (code === "Digit1") setForm("jiva");
-      if (code === "Digit2") setForm("tortoise");
+    const unbind = bindKeyboard((code) => {
       if (code === "KeyJ") toggleJournal();
       sfx.unlock();
     });
+    const id = setInterval(() => tick(0.5), 500);
+    return () => {
+      unbind();
+      clearInterval(id);
+    };
   }, []);
 
   return (
@@ -46,7 +46,7 @@ function SamsarasSpark3D() {
       <Suspense
         fallback={
           <div className="flex h-full items-center justify-center text-sm tracking-[0.3em] text-[oklch(0.85_0.12_85)]">
-            KINDLING THE SPARK…
+            THE WHEEL BEGINS TO TURN…
           </div>
         }
       >
@@ -54,13 +54,11 @@ function SamsarasSpark3D() {
       </Suspense>
       <HUD />
       <DialogueOverlay />
-      <ResolutionOverlay />
       <JournalOverlay />
       <AuditOverlay />
       <MokshaOverlay />
-      {s.cataclysm && (
-        <div className="pointer-events-none fixed inset-0 z-40 animate-pulse bg-[oklch(0.35_0.2_25_/_0.35)]" />
-      )}
+      <IntroOverlay />
+      {s.cataclysm && <div className="pointer-events-none fixed inset-0 z-40 animate-pulse bg-[oklch(0.35_0.2_25_/_0.35)]" />}
     </div>
   );
 }

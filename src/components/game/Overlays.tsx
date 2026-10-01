@@ -1,22 +1,15 @@
-import { GITA_EXCERPTS, MOKSHA_THRESHOLD } from "@/game/data";
-import { chooseOption, rebirth, restartWheel, currentLoka, currentNode, nextLoka, setForm, toggleCoOp, toggleJournal, toggleMute, useGame } from "@/game/store";
+import { useEffect, type ReactNode } from "react";
+import { FORMS, GITA_EXCERPTS, GLOSSARY, MOKSHA_THRESHOLD } from "@/game/data";
+import { begin, chooseOption, currentNode, mokshaReady, restartWheel, toggleJournal, toggleMute, useGame } from "@/game/store";
 import { useNear } from "@/game/proximity";
-import { setTouch, clearTouch } from "@/game/input";
+import { clearTouch, setTouch } from "@/game/input";
 import { sfx } from "@/game/audio";
-import { useEffect } from "react";
 
 const panel =
-  "rounded-2xl border border-[oklch(0.72_0.12_85_/_0.35)] bg-[oklch(0.16_0.07_290_/_0.78)] backdrop-blur-md shadow-[0_0_40px_oklch(0.6_0.18_300_/_0.25)]";
+  "rounded-2xl border border-[oklch(0.72_0.12_85_/_0.35)] bg-[oklch(0.16_0.07_290_/_0.8)] backdrop-blur-md text-[oklch(0.92_0.03_90)]";
+const gold = "text-[oklch(0.88_0.12_85)]";
 
-function Btn({
-  children,
-  onClick,
-  active,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  active?: boolean;
-}) {
+function Btn({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -24,11 +17,7 @@ function Btn({
         sfx.unlock();
         onClick();
       }}
-      className={`pointer-events-auto rounded-xl border px-3 py-1.5 text-xs font-medium tracking-wide transition-colors ${
-        active
-          ? "border-[oklch(0.85_0.14_85)] bg-[oklch(0.85_0.14_85_/_0.2)] text-[oklch(0.95_0.08_90)]"
-          : "border-[oklch(0.72_0.12_85_/_0.35)] bg-[oklch(0.2_0.07_290_/_0.6)] text-[oklch(0.9_0.03_90)] hover:bg-[oklch(0.3_0.09_290_/_0.7)]"
-      }`}
+      className="pointer-events-auto rounded-xl border border-[oklch(0.72_0.12_85_/_0.4)] bg-[oklch(0.22_0.07_290_/_0.7)] px-3 py-1.5 text-xs font-medium hover:bg-[oklch(0.32_0.09_290_/_0.8)]"
     >
       {children}
     </button>
@@ -36,114 +25,113 @@ function Btn({
 }
 
 function TouchBtn({ k, label, className = "" }: { k: Parameters<typeof setTouch>[0]; label: string; className?: string }) {
-  const bind = {
-    onPointerDown: (e: React.PointerEvent) => {
-      e.preventDefault();
-      sfx.unlock();
-      setTouch(k, true);
-    },
-    onPointerUp: () => setTouch(k, false),
-    onPointerLeave: () => setTouch(k, false),
-    onPointerCancel: () => setTouch(k, false),
-  };
   return (
     <button
       type="button"
-      {...bind}
-      className={`pointer-events-auto select-none rounded-xl border border-[oklch(0.72_0.12_85_/_0.35)] bg-[oklch(0.2_0.07_290_/_0.7)] text-sm font-semibold text-[oklch(0.93_0.05_90)] active:bg-[oklch(0.4_0.12_300_/_0.8)] ${className}`}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        sfx.unlock();
+        setTouch(k, true);
+      }}
+      onPointerUp={() => setTouch(k, false)}
+      onPointerLeave={() => setTouch(k, false)}
+      onPointerCancel={() => setTouch(k, false)}
+      className={`pointer-events-auto select-none rounded-xl border border-[oklch(0.72_0.12_85_/_0.35)] bg-[oklch(0.2_0.07_290_/_0.7)] text-sm font-semibold active:bg-[oklch(0.4_0.12_300_/_0.8)] ${className}`}
     >
       {label}
     </button>
   );
 }
 
+function Bar({ label, value, max = 100 }: { label: string; value: number; max?: number }) {
+  return (
+    <div className="mt-1.5">
+      <div className="flex justify-between text-[10px] uppercase tracking-widest opacity-80">
+        <span>{label}</span>
+        <span>{Math.round(value)}</span>
+      </div>
+      <div className="mt-0.5 h-1.5 rounded-full bg-[oklch(0.3_0.05_290)]">
+        <div className="h-full rounded-full bg-[oklch(0.85_0.15_85)]" style={{ width: `${Math.max(0, Math.min(100, (value / max) * 100))}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export function HUD() {
   const s = useGame();
   const near = useNear();
-  const loka = currentLoka();
-
+  const info = FORMS[s.form];
   useEffect(() => () => clearTouch(), []);
+  if (s.phase === "INTRO") return null;
+  const objective = info.objectives[Math.min(s.objective, info.objectives.length - 1)];
 
   return (
     <div className="pointer-events-none fixed inset-0 z-10 select-none">
-      {/* top-left */}
-      <div className={`pointer-events-none absolute left-3 top-3 ${panel} px-4 py-3`}>
-        <h1 className="text-sm font-semibold tracking-[0.2em] text-[oklch(0.9_0.11_85)]">SAMSARA&apos;S SPARK 3D</h1>
-        <p className="mt-0.5 text-xs text-[oklch(0.8_0.04_300)]">
-          {loka.name} · {loka.subtitle}
-        </p>
-        <div className="mt-2 w-48">
-          <div className="flex justify-between text-[10px] uppercase tracking-widest text-[oklch(0.78_0.05_300)]">
-            <span>Karma Pool</span>
-            <span>{Math.round(s.karma)}</span>
-          </div>
-          <div className="mt-1 h-1.5 rounded-full bg-[oklch(0.3_0.05_290)]">
-            <div
-              className="h-full rounded-full bg-[oklch(0.85_0.15_85)] transition-[width] duration-150"
-              style={{ width: `${Math.max(0, Math.min(100, s.karma))}%` }}
-            />
-          </div>
-          <div className="mt-2 flex justify-between text-[10px] uppercase tracking-widest text-[oklch(0.78_0.05_300)]">
-            <span>Spirit</span>
-            <span>{Math.round(s.spiritKarma)}%</span>
-          </div>
-          <div className="mt-1 h-1.5 rounded-full bg-[oklch(0.3_0.05_290)]">
-            <div
-              className="h-full rounded-full bg-[oklch(0.78_0.16_320)] transition-[width] duration-150"
-              style={{ width: `${s.spiritKarma}%` }}
-            />
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-x-3 text-[10px] uppercase tracking-widest text-[oklch(0.78_0.05_300)]">
-            <span>Jnana {s.atman.jnana}</span>
-            <span>Vairagya {s.atman.vairagya}</span>
-            <div className="mt-1 h-1 rounded-full bg-[oklch(0.3_0.05_290)]"><div className="h-full rounded-full bg-[oklch(0.8_0.12_220)]" style={{ width: `${s.atman.jnana}%` }} /></div>
-            <div className="mt-1 h-1 rounded-full bg-[oklch(0.3_0.05_290)]"><div className="h-full rounded-full bg-[oklch(0.85_0.1_150)]" style={{ width: `${s.atman.vairagya}%` }} /></div>
-          </div>
-          <p className="mt-1.5 text-[10px] tracking-widest text-[oklch(0.7_0.04_300)]">LIFE {s.lives}</p>
+      <div className={`absolute left-3 top-3 w-56 ${panel} px-4 py-3`}>
+        <h1 className={`text-xs font-semibold tracking-[0.2em] ${gold}`}>LAWS OF KARMA · LIFE {s.life}</h1>
+        <p className="mt-1 text-sm font-semibold">{info.title}</p>
+        <p className="text-[11px] opacity-75">{info.subtitle}</p>
+        <Bar label="Age" value={s.age} max={info.lifespan} />
+        <Bar label="Jnana" value={s.atman.jnana} />
+        <Bar label="Vairagya" value={s.atman.vairagya} />
+        <div className="mt-2 flex justify-between text-[10px] uppercase tracking-wider">
+          <span>Nishkama {s.atman.nishkamaKarma}</span>
+          <span>Sakam {s.atman.sakamKarma}</span>
+          <span>Adharma {s.atman.adharmaKarma}</span>
+        </div>
+        <div className="mt-1 flex justify-between text-[10px] uppercase tracking-wider opacity-80">
+          <span>Health {"♥".repeat(Math.max(0, s.health))}</span>
+          <span>Merit {Math.round(s.merit)}</span>
         </div>
       </div>
 
-      {/* top-right */}
-      <div className="absolute right-3 top-3 flex flex-col items-end gap-2">
-        <div className={`${panel} flex gap-2 px-3 py-2`}>
-          <Btn onClick={() => setForm("jiva")} active={s.form === "jiva"}>
-            1 · Jiva
-          </Btn>
-          <Btn onClick={() => setForm("tortoise")} active={s.form === "tortoise"}>
-            2 · Tortoise
-          </Btn>
-        </div>
-        <div className={`${panel} flex gap-2 px-3 py-2`}>
-          <Btn onClick={toggleJournal}>Journal ({s.journal.length})</Btn>
-          <Btn onClick={toggleCoOp} active={s.coOpEnabled}>
-            Co-Op Ally
-          </Btn>
+      <div className={`absolute right-3 top-3 max-w-[240px] ${panel} px-4 py-3`}>
+        <p className={`text-[10px] uppercase tracking-widest ${gold}`}>Current goal</p>
+        <p className="mt-1 text-xs">{s.lifeEndAt ? s.lifeEndReason : objective}</p>
+        {mokshaReady(s) && s.form === "sage" && <p className="mt-1 text-[11px] text-[oklch(0.9_0.14_85)]">Find the shadow spirit and give it all your merit.</p>}
+        <div className="mt-2 flex gap-2">
+          <Btn onClick={toggleJournal}>Journal (J)</Btn>
           <Btn onClick={toggleMute}>{s.muted ? "Unmute" : "Mute"}</Btn>
         </div>
       </div>
 
-      {/* interaction prompt */}
-      {near && s.phase === "WORLD_ACTION" && (
-        <div className={`absolute left-1/2 top-16 -translate-x-1/2 ${panel} px-4 py-2 text-xs text-[oklch(0.92_0.06_88)]`}>
-          {near.label}
+      {near && s.phase === "PLAY" && (
+        <div className={`absolute bottom-40 left-1/2 -translate-x-1/2 ${panel} px-4 py-2 text-sm`}>
+          <span className={gold}>E</span> · {near.label}
         </div>
       )}
 
-      {/* touch controls */}
-      <div className="absolute bottom-4 left-4 grid grid-cols-3 grid-rows-3 gap-1.5">
-        <TouchBtn k="up" label="▲" className="col-start-2 row-start-1 h-12 w-12" />
-        <TouchBtn k="left" label="◀" className="col-start-1 row-start-2 h-12 w-12" />
-        <TouchBtn k="right" label="▶" className="col-start-3 row-start-2 h-12 w-12" />
-        <TouchBtn k="down" label="▼" className="col-start-2 row-start-3 h-12 w-12" />
+      <div className="absolute bottom-4 left-4 grid grid-cols-3 gap-1.5">
+        <span />
+        <TouchBtn k="up" label="▲" className="h-12 w-12" />
+        <span />
+        <TouchBtn k="left" label="◀" className="h-12 w-12" />
+        <TouchBtn k="down" label="▼" className="h-12 w-12" />
+        <TouchBtn k="right" label="▶" className="h-12 w-12" />
       </div>
-      <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2">
-        <TouchBtn k="jump" label="JUMP" className="h-12 w-28" />
-        <TouchBtn k="interact" label="E · TALK / SACRIFICE" className="h-12 w-48" />
+      <div className="absolute bottom-4 right-4 flex gap-2">
+        {info.jump > 0 && <TouchBtn k="jump" label="Jump" className="h-14 w-16" />}
+        <TouchBtn k="interact" label="Act (E)" className="h-14 w-16" />
       </div>
+    </div>
+  );
+}
 
-      <p className="absolute bottom-2 left-1/2 hidden -translate-x-1/2 text-[10px] tracking-widest text-[oklch(0.7_0.04_300)] sm:block">
-        WASD / ARROWS MOVE · SPACE JUMP · 1 / 2 FORM · HOLD E INTERACT
-      </p>
+export function IntroOverlay() {
+  const s = useGame();
+  if (s.phase !== "INTRO") return null;
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-[oklch(0.1_0.05_290_/_0.85)] p-4">
+      <div className={`max-w-md ${panel} p-6 text-center`}>
+        <h1 className={`text-xl font-semibold tracking-[0.2em] ${gold}`}>LAWS OF KARMA</h1>
+        <p className="mt-3 text-sm opacity-85">
+          You cannot choose your body. Your deeds choose it for you. Live each life, act, and let the wheel decide what you become next.
+        </p>
+        <p className="mt-2 text-xs opacity-70">WASD / arrows to move · Space to jump · E to act · J for the journal</p>
+        <div className="mt-5">
+          <Btn onClick={begin}>Begin the first life</Btn>
+        </div>
+      </div>
     </div>
   );
 }
@@ -151,22 +139,19 @@ export function HUD() {
 export function DialogueOverlay() {
   const s = useGame();
   const node = currentNode();
-  if ((s.phase !== "STORY_CHOICE" && s.phase !== "IN_GAME_DIALOGUE") || !node) return null;
+  if (s.phase !== "DIALOGUE" || !node) return null;
   return (
-    <div className="fixed inset-0 z-20 flex items-end justify-center bg-[oklch(0.08_0.05_290_/_0.6)] p-4 sm:items-center">
-      <div className={`${panel} w-full max-w-xl p-6`}>
-        <p className="text-[11px] uppercase tracking-[0.25em] text-[oklch(0.85_0.13_85)]">{node.speaker}</p>
-        <p className="mt-3 text-sm leading-relaxed text-[oklch(0.94_0.02_90)]">{node.text}</p>
-        <div className="mt-5 flex flex-col gap-2">
+    <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center p-4">
+      <div className={`w-full max-w-xl ${panel} p-5`}>
+        <p className={`text-xs uppercase tracking-widest ${gold}`}>{node.speaker}</p>
+        <p className="mt-2 text-sm leading-relaxed">{node.text}</p>
+        <div className="mt-4 flex flex-col gap-2">
           {node.choices.map((c, i) => (
             <button
               key={i}
               type="button"
-              onClick={() => {
-                sfx.unlock();
-                chooseOption(i);
-              }}
-              className="rounded-xl border border-[oklch(0.72_0.12_85_/_0.3)] bg-[oklch(0.22_0.07_292_/_0.7)] px-4 py-3 text-left text-sm text-[oklch(0.93_0.03_90)] transition-colors hover:border-[oklch(0.85_0.14_85)] hover:bg-[oklch(0.3_0.1_295_/_0.8)]"
+              onClick={() => chooseOption(i)}
+              className="rounded-xl border border-[oklch(0.72_0.12_85_/_0.35)] bg-[oklch(0.22_0.07_290_/_0.7)] px-3 py-2 text-left text-sm hover:bg-[oklch(0.32_0.09_290_/_0.8)]"
             >
               {c.label}
             </button>
@@ -177,119 +162,54 @@ export function DialogueOverlay() {
   );
 }
 
-export function ResolutionOverlay() {
-  const s = useGame();
-  if (s.phase !== "RESOLUTION") return null;
-  return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-[oklch(0.08_0.05_290_/_0.72)] p-4">
-      <div className={`${panel} w-full max-w-lg p-7 text-center`}>
-        <p className="text-[11px] uppercase tracking-[0.3em] text-[oklch(0.85_0.13_85)]">Resolution</p>
-        <p className="mt-4 text-sm leading-relaxed text-[oklch(0.94_0.02_90)]">{s.resolutionText}</p>
-        <button
-          type="button"
-          onClick={() => {
-            sfx.unlock();
-            nextLoka();
-          }}
-          className="mt-6 rounded-xl border border-[oklch(0.85_0.14_85)] bg-[oklch(0.85_0.14_85_/_0.18)] px-6 py-2.5 text-sm font-medium text-[oklch(0.95_0.08_90)] hover:bg-[oklch(0.85_0.14_85_/_0.3)]"
-        >
-          Turn the wheel
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export function JournalOverlay() {
   const s = useGame();
   if (!s.journalOpen) return null;
-  const flags = Object.entries(s.storyFlags).filter(([, v]) => v);
   return (
-    <div className="fixed inset-0 z-30 flex justify-end bg-[oklch(0.08_0.05_290_/_0.5)]" onClick={toggleJournal}>
-      <div
-        className={`h-full w-full max-w-sm overflow-y-auto border-l border-[oklch(0.72_0.12_85_/_0.3)] bg-[oklch(0.14_0.06_290_/_0.95)] p-6 backdrop-blur-md`}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-[oklch(0.1_0.05_290_/_0.8)] p-4">
+      <div className={`max-h-[85vh] w-full max-w-2xl overflow-y-auto ${panel} p-6`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm tracking-[0.25em] text-[oklch(0.88_0.12_85)]">JOURNAL</h2>
-          <button type="button" onClick={toggleJournal} className="text-xs text-[oklch(0.8_0.04_300)]">
-            Close
-          </button>
+          <h2 className={`text-lg font-semibold tracking-widest ${gold}`}>JOURNAL</h2>
+          <Btn onClick={toggleJournal}>Close</Btn>
         </div>
-        <h3 className="mt-6 text-[10px] uppercase tracking-widest text-[oklch(0.75_0.05_300)]">From the Gita</h3>
-        <div className="mt-2 space-y-2">
-          {GITA_EXCERPTS.map((g) => (
-            <blockquote key={g.ref} className="border-l-2 border-[oklch(0.85_0.14_85_/_0.5)] pl-3 text-xs italic leading-relaxed text-[oklch(0.9_0.03_90)]">
-              {g.text}
-              <span className="mt-0.5 block not-italic text-[10px] text-[oklch(0.75_0.08_85)]">{g.ref}</span>
-            </blockquote>
-          ))}
-        </div>
-        <h3 className="mt-6 text-[10px] uppercase tracking-widest text-[oklch(0.75_0.05_300)]">Atman</h3>
-        <p className="mt-2 text-xs text-[oklch(0.88_0.02_90)]">
-          Jnana {s.atman.jnana} · Vairagya {s.atman.vairagya} · Sakam deeds {s.atman.sakamKarma} · Nishkama deeds {s.atman.nishkamaKarma}
+        <p className="mt-2 text-xs opacity-75">
+          Moksha needs Jnana ≥ {MOKSHA_THRESHOLD.jnana}, Vairagya ≥ {MOKSHA_THRESHOLD.vairagya} and no unresolved adharma.
         </p>
-        <p className="mt-1 text-[11px] text-[oklch(0.72_0.04_300)]">
-          Moksha awaits in the last realm for one with {MOKSHA_THRESHOLD.jnana}+ wisdom, {MOKSHA_THRESHOLD.vairagya}+ detachment, and nothing left to give.
-        </p>
-        <h3 className="mt-6 text-[10px] uppercase tracking-widest text-[oklch(0.75_0.05_300)]">Parables</h3>
-        {s.journal.length === 0 && <p className="mt-2 text-xs text-[oklch(0.7_0.03_300)]">No parables unlocked yet.</p>}
-        <div className="mt-2 space-y-3">
-          {s.journal.map((j) => (
-            <div key={j.title} className="rounded-xl border border-[oklch(0.72_0.12_85_/_0.2)] bg-[oklch(0.2_0.07_292_/_0.6)] p-3">
-              <p className="text-xs font-semibold text-[oklch(0.9_0.1_85)]">{j.title}</p>
-              <p className="mt-1 text-xs leading-relaxed text-[oklch(0.88_0.02_90)]">{j.text}</p>
-            </div>
-          ))}
-        </div>
-        <h3 className="mt-6 text-[10px] uppercase tracking-widest text-[oklch(0.75_0.05_300)]">Choices made</h3>
-        {flags.length === 0 && <p className="mt-2 text-xs text-[oklch(0.7_0.03_300)]">The wheel has not yet recorded you.</p>}
-        <ul className="mt-2 space-y-1 text-xs text-[oklch(0.88_0.02_90)]">
-          {flags.map(([k]) => (
-            <li key={k}>· {k.replace(/([A-Z])/g, " $1").toLowerCase()}</li>
-          ))}
-        </ul>
+        <h3 className={`mt-4 text-xs uppercase tracking-widest ${gold}`}>Your lives</h3>
+        {s.journal.length === 0 ? <p className="mt-1 text-sm opacity-70">No deeds recorded yet.</p> : s.journal.map((j, i) => <p key={i} className="mt-1 text-sm">{j}</p>)}
+        <h3 className={`mt-4 text-xs uppercase tracking-widest ${gold}`}>Bhagavad Gita</h3>
+        {GITA_EXCERPTS.map((g) => (
+          <p key={g.ref} className="mt-2 text-sm italic">
+            “{g.text}” <span className="not-italic opacity-70">— {g.ref}</span>
+          </p>
+        ))}
+        <h3 className={`mt-4 text-xs uppercase tracking-widest ${gold}`}>Glossary</h3>
+        {GLOSSARY.map((g) => (
+          <p key={g.term} className="mt-1 text-sm">
+            <span className={gold}>{g.term}:</span> {g.def}
+          </p>
+        ))}
       </div>
     </div>
-  );
-}
-
-function Wheel({ spin }: { spin: string }) {
-  return (
-    <svg viewBox="0 0 100 100" className={`mx-auto h-28 w-28 ${spin}`} aria-hidden>
-      <circle cx="50" cy="50" r="44" fill="none" stroke="oklch(0.85 0.14 85)" strokeWidth="3" />
-      <circle cx="50" cy="50" r="8" fill="oklch(0.85 0.14 85)" />
-      {Array.from({ length: 8 }).map((_, i) => {
-        const a = (i * Math.PI) / 4;
-        return <line key={i} x1="50" y1="50" x2={50 + 44 * Math.cos(a)} y2={50 + 44 * Math.sin(a)} stroke="oklch(0.85 0.14 85)" strokeWidth="2" />;
-      })}
-    </svg>
   );
 }
 
 export function AuditOverlay() {
   const s = useGame();
-  if (!s.audit) return null;
-  const a = s.atman;
+  const a = s.audit;
+  if (s.phase !== "AUDIT" || !a) return null;
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-[oklch(0.06_0.04_290_/_0.85)] p-4">
-      <div className={`${panel} w-full max-w-md p-7 text-center`}>
-        <p className="text-[11px] uppercase tracking-[0.3em] text-[oklch(0.85_0.13_85)]">Karmic Audit</p>
-        <div className="mt-4"><Wheel spin="animate-[spin_4s_linear_infinite]" /></div>
-        <p className="mt-4 text-sm text-[oklch(0.94_0.02_90)]">{s.audit.reason}</p>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[oklch(0.88_0.02_90)]">
-          <span>Sakam deeds: {a.sakamKarma}</span>
-          <span>Nishkama deeds: {a.nishkamaKarma}</span>
-          <span className="text-[oklch(0.85_0.1_220)]">Jnana kept: {a.jnana}</span>
-          <span className="text-[oklch(0.85_0.1_150)]">Vairagya kept: {a.vairagya}</span>
-        </div>
-        <p className="mt-4 text-xs text-[oklch(0.8_0.05_300)]">
-          The wheel turns. You return as a <b className="text-[oklch(0.9_0.12_85)]">{s.audit.rebornAs === "jiva" ? "Jiva of light" : "Tortoise"}</b>.
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-[oklch(0.08_0.05_290_/_0.9)] p-4">
+      <div className={`max-w-md ${panel} p-6 text-center`}>
+        <div className="mx-auto h-24 w-24 animate-spin rounded-full border-4 border-dashed border-[oklch(0.85_0.14_85)] [animation-duration:3s]" />
+        <h2 className={`mt-4 text-lg font-semibold tracking-widest ${gold}`}>KARMIC AUDIT</h2>
+        <p className="mt-2 text-sm opacity-85">{a.reason}</p>
+        <p className="mt-3 text-xs uppercase tracking-wider">
+          Life as {FORMS[a.form].title} · Nishkama {a.seeds.nishkama} · Sakam {a.seeds.sakam} · Adharma {a.seeds.adharma}
         </p>
-        <button type="button" onClick={() => { sfx.unlock(); rebirth(); }}
-          className="mt-6 rounded-xl border border-[oklch(0.85_0.14_85)] bg-[oklch(0.85_0.14_85_/_0.18)] px-6 py-2.5 text-sm font-medium text-[oklch(0.95_0.08_90)] hover:bg-[oklch(0.85_0.14_85_/_0.3)]">
-          Be reborn
-        </button>
+        <p className="mt-4 text-sm">
+          The wheel turns. You will be reborn as a <span className={gold}>{FORMS[a.next].title}</span>.
+        </p>
       </div>
     </div>
   );
@@ -299,16 +219,13 @@ export function MokshaOverlay() {
   const s = useGame();
   if (s.phase !== "MOKSHA") return null;
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center overflow-hidden p-4">
-      <div className="absolute inset-0 animate-[moksha_6s_ease-out_forwards] bg-[radial-gradient(circle,oklch(0.97_0.08_90)_0%,oklch(0.85_0.15_85)_35%,oklch(0.5_0.12_300_/_0.4)_70%,transparent_100%)]" />
-      <div className="relative max-w-md animate-[fadein_3s_ease-in_2s_both] text-center">
-        <Wheel spin="animate-[spin_12s_linear_infinite] opacity-60" />
-        <p className="mt-4 text-[11px] uppercase tracking-[0.4em] text-[oklch(0.3_0.1_60)]">Moksha</p>
-        <p className="mt-3 text-lg font-medium text-[oklch(0.25_0.08_60)]">The spark stops counting. The wave remembers it was always the ocean.</p>
-        <p className="mt-2 text-sm text-[oklch(0.35_0.08_60)]">You have merged into Brahman after {s.lives} {s.lives === 1 ? "life" : "lives"}.</p>
-        <button type="button" onClick={restartWheel}
-          className="mt-6 rounded-xl border border-[oklch(0.35_0.1_60)] px-6 py-2.5 text-sm text-[oklch(0.25_0.08_60)] hover:bg-[oklch(1_0_0_/_0.3)]">
-          Begin a new wheel
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[oklch(0.85_0.12_85_/_0.85)] p-4">
+      <div className="max-w-md text-center text-[oklch(0.2_0.06_290)]">
+        <h2 className="text-2xl font-semibold tracking-[0.3em]">MOKSHA</h2>
+        <p className="mt-3 text-sm">You gave away every fruit of every deed. The Atman merges into Brahman. The wheel stops.</p>
+        <p className="mt-2 text-xs opacity-80">After {s.life} lives.</p>
+        <button type="button" onClick={restartWheel} className="mt-5 rounded-xl border border-[oklch(0.2_0.06_290)] px-4 py-2 text-sm">
+          Turn the wheel again
         </button>
       </div>
     </div>
