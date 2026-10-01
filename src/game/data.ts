@@ -149,8 +149,8 @@ function chain(life: string, scenes: Scene[], completeAtEnd: boolean): Tree {
     const mk = (o: Opt, seed: Seed, base: Effect): Choice => ({
       label: o.label,
       tag: seed,
-      next,
-      effect: { seed, ...base, ...o.extra, journal: `As a ${life}, ${o.journal}`, complete: last && completeAtEnd ? true : undefined },
+      ...(next ? { next } : {}),
+      effect: { seed, ...base, ...o.extra, journal: `As a ${life}, ${o.journal}`, complete: last && completeAtEnd },
     });
     tree[i === 0 ? "start" : `s${i}`] = {
       title: `Trial ${i + 1} of ${scenes.length}`,
