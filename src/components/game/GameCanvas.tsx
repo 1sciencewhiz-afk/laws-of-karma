@@ -138,7 +138,7 @@ function SageWorld() {
         <meshStandardMaterial color="#fff2c0" emissive="#ffd060" emissiveIntensity={3} />
       </mesh>
       {SAGE.mirrors.map((p, i) => (
-        <group key={i} position={p} rotation-y={(s.mirrors[i] * Math.PI) / 2}>
+        <group key={i} position={p} rotation-y={((s.mirrors[i] ?? 0) * Math.PI) / 2}>
           <mesh>
             <boxGeometry args={[1.8, 2.2, 0.15]} />
             <meshStandardMaterial color="#cfe0ff" metalness={0.9} roughness={0.1} emissive={s.mirrors[i] === SAGE.solution[i] ? "#ffd060" : "#203050"} emissiveIntensity={0.6} />

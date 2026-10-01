@@ -75,6 +75,7 @@ function lifeState(form: Form): Partial<GameState> {
 
 function initial(): GameState {
   return {
+    ...lifeState("prince"),
     phase: "INTRO",
     life: 1,
     atman: { jnana: 0, vairagya: 0, sakamKarma: 0, nishkamaKarma: 0, adharmaKarma: 0, unseenBadKarma: 0 },
@@ -91,7 +92,6 @@ function initial(): GameState {
     doomAt: null,
     cataclysm: false,
     audit: null,
-    ...(lifeState("prince") as Required<ReturnType<typeof lifeState>>),
   } as GameState;
 }
 
