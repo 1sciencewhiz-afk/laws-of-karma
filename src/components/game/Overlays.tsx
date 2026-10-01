@@ -143,6 +143,7 @@ export function DialogueOverlay() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center p-4">
       <div className={`w-full max-w-xl ${panel} p-5`}>
+        {node.title && <p className="text-[10px] uppercase tracking-widest opacity-60">{node.title}</p>}
         <p className={`text-xs uppercase tracking-widest ${gold}`}>{node.speaker}</p>
         <p className="mt-2 text-sm leading-relaxed">{node.text}</p>
         <div className="mt-4 flex flex-col gap-2">
