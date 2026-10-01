@@ -1,515 +1,357 @@
 /** @jsxRuntime classic */
 import "@/game/r3f-devtag-patch";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment, Lightformer, Stars } from "@react-three/drei";
-import React, { Suspense, useEffect, useMemo, useRef } from "react";
+import { Stars } from "@react-three/drei";
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { Loka } from "@/game/data";
-import { STORY_TREES } from "@/game/data";
+import { ANIMAL, FORMS, GROUND, MERCHANT, PRINCE, SAGE, SIL_POS, START, type V3 } from "@/game/data";
 import {
-  addHiddenKarma,
-  currentLoka,
-  damage,
   getState,
+  hurt,
+  mokshaReady,
   openDialogue,
-  reachPortal,
-  resolveCataclysm,
-  spendKarma,
-  triggerCataclysm,
+  openSilo,
+  reachPool,
+  rotateMirror,
+  transferMerit,
   useGame,
 } from "@/game/store";
-import { setNear } from "@/game/proximity";
+import { setNear, type Near } from "@/game/proximity";
 import { consumeJump, readInput } from "@/game/input";
 import { sfx } from "@/game/audio";
 
 const GRAVITY = 26;
-const SIL_POS = new THREE.Vector3(-26, 2.6, -26);
+const v3 = (p: V3) => new THREE.Vector3(p[0], p[1], p[2]);
 
-/* ------------------------------- world ------------------------------- */
+/* ------------------------------ props ------------------------------ */
 
-function Ground({ loka }: { loka: Loka }) {
+function Npc({ position, color = "#e8d3a0" }: { position: V3; color?: string }) {
   return (
-    <group>
-      <mesh rotation-x={-Math.PI / 2} receiveShadow position={[0, 0, 0]}>
-        <planeGeometry args={[loka.ground.w, loka.ground.d, 32, 32]} />
-        <meshStandardMaterial color={loka.groundColor} roughness={0.85} metalness={0.15} />
+    <group position={position}>
+      <mesh position={[0, 1, 0]} castShadow>
+        <capsuleGeometry args={[0.45, 1.1, 6, 12]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.25} />
       </mesh>
-      <gridHelper args={[loka.ground.w, 35, "#6b5cff", "#3c3270"]} position={[0, 0.02, 0]} />
+      <mesh position={[0, 2.15, 0]}>
+        <sphereGeometry args={[0.35, 16, 16]} />
+        <meshStandardMaterial color="#f2d7b0" />
+      </mesh>
+      <pointLight position={[0, 2.5, 0]} color="#ffd48a" intensity={4} distance={8} />
     </group>
   );
 }
 
-function Platforms({ loka }: { loka: Loka }) {
+function Soldiers() {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const COUNT = 5000;
+  useEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    const o = new THREE.Object3D();
+    const color = new THREE.Color();
+    for (let i = 0; i < COUNT; i++) {
+      const side = i < COUNT / 2 ? 1 : -1;
+      const j = i % (COUNT / 2);
+      const col = j % 50;
+      const row = Math.floor(j / 50);
+      o.position.set((col - 25) * 1.1, 0.6, side === 1 ? 20 + row * 0.9 : -20 - row * 0.9);
+      o.updateMatrix();
+      m.setMatrixAt(i, o.matrix);
+      m.setColorAt(i, color.set(side === 1 ? "#c9a24a" : "#8a3030"));
+    }
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  }, []);
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+      <boxGeometry args={[0.5, 1.2, 0.5]} />
+      <meshStandardMaterial />
+    </instancedMesh>
+  );
+}
+
+function PrinceWorld() {
   return (
     <group>
-      {loka.platforms.map((p, i) => (
-        <mesh key={i} position={[p.x, p.y / 2, p.z]} castShadow receiveShadow>
-          <boxGeometry args={[p.w, p.y, p.d]} />
-          <meshStandardMaterial color="#3b3270" roughness={0.6} emissive="#241d4d" emissiveIntensity={0.6} />
-        </mesh>
+      <Soldiers />
+      <Npc position={PRINCE.mentor} color="#c84a3a" />
+      <mesh position={[PRINCE.mentor[0], 0.8, PRINCE.mentor[2] - 2.5]} castShadow>
+        <boxGeometry args={[3, 1.6, 2]} />
+        <meshStandardMaterial color="#7a5a2a" metalness={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
+function MerchantWorld() {
+  const s = useGame();
+  return (
+    <group>
+      <Npc position={MERCHANT.elder} color="#d8c8a8" />
+      {MERCHANT.silos.map((p, i) => (
+        <group key={i} position={p}>
+          <mesh position={[0, 3, 0]} castShadow>
+            <cylinderGeometry args={[2, 2, 6, 20]} />
+            <meshStandardMaterial color={s.silosOpened[i] ? "#e8c070" : "#7a6040"} emissive={s.silosOpened[i] ? "#a07020" : "#000"} emissiveIntensity={0.5} />
+          </mesh>
+          <mesh position={[0, 6.6, 0]}>
+            <coneGeometry args={[2.3, 1.4, 20]} />
+            <meshStandardMaterial color="#5a3a20" />
+          </mesh>
+        </group>
       ))}
     </group>
   );
 }
 
-function Hazards({ loka, cleared }: { loka: Loka; cleared: boolean }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
-    if (ref.current) {
-      const t = clock.getElapsedTime();
-      ref.current.children.forEach((c, i) => {
-        c.position.y = 0.35 + Math.sin(t * 2 + i) * 0.08;
-      });
-    }
-  });
-  if (cleared) return null;
+function AnimalWorld() {
   return (
-    <group ref={ref}>
-      {loka.hazards.map((h, i) => (
+    <group>
+      <Npc position={ANIMAL.calf} color="#b08a60" />
+      {ANIMAL.hazards.map((h, i) => (
         <mesh key={i} position={[h.x, 0.35, h.z]}>
           <boxGeometry args={[h.w, 0.7, h.d]} />
+          <meshStandardMaterial color="#2a0a10" emissive="#7a1330" emissiveIntensity={0.8} transparent opacity={0.85} />
+        </mesh>
+      ))}
+      {ANIMAL.platforms.map((p, i) => (
+        <mesh key={i} position={[p.x, p.y / 2, p.z]} castShadow receiveShadow>
+          <boxGeometry args={[p.w, p.y, p.d]} />
+          <meshStandardMaterial color="#6a5a40" />
+        </mesh>
+      ))}
+      <mesh position={[ANIMAL.pool[0], 0.05, ANIMAL.pool[2]]} rotation-x={-Math.PI / 2}>
+        <circleGeometry args={[4, 32]} />
+        <meshStandardMaterial color="#3a7ab0" emissive="#1a4a80" emissiveIntensity={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+function SageWorld() {
+  const s = useGame();
+  return (
+    <group>
+      <Npc position={SAGE.disciple} color="#e8a040" />
+      <mesh position={SAGE.source}>
+        <sphereGeometry args={[0.6, 16, 16]} />
+        <meshStandardMaterial color="#fff2c0" emissive="#ffd060" emissiveIntensity={3} />
+      </mesh>
+      {SAGE.mirrors.map((p, i) => (
+        <group key={i} position={p} rotation-y={(s.mirrors[i] * Math.PI) / 2}>
+          <mesh>
+            <boxGeometry args={[1.8, 2.2, 0.15]} />
+            <meshStandardMaterial color="#cfe0ff" metalness={0.9} roughness={0.1} emissive={s.mirrors[i] === SAGE.solution[i] ? "#ffd060" : "#203050"} emissiveIntensity={0.6} />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={SAGE.crystal}>
+        <octahedronGeometry args={[1, 0]} />
+        <meshStandardMaterial color="#a0e0ff" emissive={s.lightAligned ? "#ffe080" : "#204060"} emissiveIntensity={s.lightAligned ? 3 : 0.5} />
+      </mesh>
+      {mokshaReady(s) && (
+        <mesh position={[SAGE.spirit[0], 2, SAGE.spirit[2]]}>
+          <sphereGeometry args={[1.4, 24, 24]} />
           <meshStandardMaterial
-            color="#1a0620"
-            emissive={h.forbidden ? "#4b0f4b" : "#7a1330"}
-            emissiveIntensity={0.9}
-            roughness={0.4}
+            color={s.spiritFill >= 100 ? "#ffe9a0" : "#1a1030"}
+            emissive="#ffd060"
+            emissiveIntensity={s.spiritFill / 40}
             transparent
             opacity={0.85}
           />
         </mesh>
-      ))}
-    </group>
-  );
-}
-
-function SpiritMesh({ position, progress, dissolved }: { position: [number, number, number]; progress: number; dissolved: boolean }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }, delta) => {
-    if (!ref.current) return;
-    ref.current.rotation.y += delta * 0.6;
-    ref.current.position.y = position[1] + Math.sin(clock.getElapsedTime() * 1.4) * 0.15;
-    const target = dissolved ? 0 : 1;
-    ref.current.scale.lerp(new THREE.Vector3(target, target, target), 1 - Math.exp(-3 * delta));
-  });
-  const glow = 0.2 + progress * 2.4;
-  return (
-    <group ref={ref} position={position}>
-      <mesh castShadow>
-        <capsuleGeometry args={[0.9, 2.1, 6, 16]} />
-        <meshStandardMaterial color="#0d0718" emissive="#f4c66a" emissiveIntensity={glow} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 1.9, 0]}>
-        <sphereGeometry args={[0.55, 20, 20]} />
-        <meshStandardMaterial color="#14091f" emissive="#ffe0a3" emissiveIntensity={glow * 1.4} />
-      </mesh>
-      <pointLight color="#ffcf87" intensity={progress * 14} distance={16} />
-      {dissolved && (
-        <mesh rotation-x={-Math.PI / 2} position={[0, 0.2, 0]}>
-          <ringGeometry args={[1.6, 2.6, 40]} />
-          <meshBasicMaterial color="#ffd89b" transparent opacity={0.6} side={THREE.DoubleSide} />
-        </mesh>
       )}
-    </group>
-  );
-}
-
-function Portal({ position, open }: { position: [number, number, number]; open: boolean }) {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.z += delta * (open ? 1.6 : 0.2);
-  });
-  return (
-    <group position={position}>
-      <mesh ref={ref}>
-        <torusGeometry args={[2.2, 0.28, 16, 48]} />
-        <meshStandardMaterial
-          color={open ? "#ffe3ab" : "#2d2352"}
-          emissive={open ? "#ffc861" : "#3a2d6b"}
-          emissiveIntensity={open ? 2.4 : 0.4}
-        />
-      </mesh>
-      <mesh>
-        <circleGeometry args={[2.1, 40]} />
-        <meshBasicMaterial color={open ? "#f8e2b4" : "#140d2a"} transparent opacity={open ? 0.45 : 0.25} side={THREE.DoubleSide} />
-      </mesh>
-      {open && <pointLight color="#ffd28a" intensity={10} distance={20} />}
-    </group>
-  );
-}
-
-function NpcMesh({ position, talking }: { position: [number, number, number]; talking: boolean }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
-    if (ref.current) ref.current.position.y = position[1] + Math.sin(clock.getElapsedTime() * 1.8) * 0.1;
-  });
-  return (
-    <group ref={ref} position={position}>
-      <mesh castShadow>
-        <cylinderGeometry args={[0.5, 0.8, 1.9, 12]} />
-        <meshStandardMaterial color="#4e3a7a" emissive="#6d55b8" emissiveIntensity={0.5} roughness={0.6} />
-      </mesh>
-      <mesh position={[0, 1.4, 0]} castShadow>
-        <sphereGeometry args={[0.45, 18, 18]} />
-        <meshStandardMaterial color="#d9c7a1" emissive="#8a6f3c" emissiveIntensity={0.3} />
-      </mesh>
-      <mesh position={[0, 2.5, 0]}>
-        <sphereGeometry args={[0.22, 14, 14]} />
-        <meshBasicMaterial color={talking ? "#fff0c4" : "#8fe3ff"} />
-      </mesh>
-      <pointLight color="#9fd8ff" intensity={2.5} distance={8} />
     </group>
   );
 }
 
 function Silhouette() {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
-    if (ref.current) ref.current.rotation.y = Math.sin(clock.getElapsedTime() * 0.2) * 0.2;
-  });
   return (
-    <group ref={ref} position={SIL_POS.toArray()}>
-      <mesh>
-        <capsuleGeometry args={[0.7, 3.6, 6, 14]} />
-        <meshStandardMaterial color="#05030a" roughness={1} metalness={0} />
-      </mesh>
-    </group>
-  );
-}
-
-const DECOR = [
-  [-24, -8, 1.8],
-  [20, -18, 2.4],
-  [-18, 24, 1.4],
-  [26, 12, 2.0],
-  [6, -26, 2.8],
-  [-30, 4, 1.6],
-  [14, 26, 1.2],
-] as const;
-
-function Decor() {
-  return (
-    <group>
-      {DECOR.map(([x, z, r], i) => (
-        <mesh key={i} position={[x, r * 0.45, z]} rotation-y={i} castShadow receiveShadow>
-          <dodecahedronGeometry args={[r, 0]} />
-          <meshStandardMaterial color="#332a5e" roughness={0.95} emissive="#5b3fa8" emissiveIntensity={0.25} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function Dust() {
-  const positions = useMemo(() => {
-    const arr = new Float32Array(600 * 3);
-    for (let i = 0; i < 600; i++) {
-      arr[i * 3] = (Math.random() - 0.5) * 70;
-      arr[i * 3 + 1] = Math.random() * 18;
-      arr[i * 3 + 2] = (Math.random() - 0.5) * 70;
-    }
-    return arr;
-  }, []);
-  const ref = useRef<THREE.Points>(null);
-  useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.02;
-  });
-  return (
-    <points ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-      </bufferGeometry>
-      <pointsMaterial color="#cbb8ff" size={0.12} sizeAttenuation transparent opacity={0.6} />
-    </points>
-  );
-}
-
-function CoOpAlly({ playerRef }: { playerRef: React.RefObject<THREE.Group | null> }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }, delta) => {
-    if (!ref.current || !playerRef.current) return;
-    const t = clock.getElapsedTime();
-    const p = playerRef.current.position;
-    const target = new THREE.Vector3(p.x + Math.cos(t * 1.2) * 2.6, p.y + 1.2 + Math.sin(t * 2) * 0.2, p.z + Math.sin(t * 1.2) * 2.6);
-    ref.current.position.lerp(target, 1 - Math.exp(-6 * delta));
-  });
-  return (
-    <group ref={ref}>
-      <mesh>
-        <sphereGeometry args={[0.45, 20, 20]} />
-        <meshStandardMaterial color="#bfe9ff" emissive="#7ad3ff" emissiveIntensity={2.2} />
-      </mesh>
-      <pointLight color="#7ad3ff" intensity={5} distance={10} />
-    </group>
-  );
-}
-
-/* ------------------------------ player ------------------------------- */
-
-function topUnder(loka: Loka, x: number, z: number) {
-  let top = 0;
-  for (const p of loka.platforms) {
-    if (Math.abs(x - p.x) <= p.w / 2 && Math.abs(z - p.z) <= p.d / 2) top = Math.max(top, p.y);
-  }
-  return top;
-}
-
-function PlayerRig({ groupRef }: { groupRef: React.RefObject<THREE.Group | null> }) {
-  const vel = useRef(new THREE.Vector3());
-  const grounded = useRef(true);
-  const interactWasDown = useRef(false);
-  const visitedForbidden = useRef<Set<number>>(new Set());
-  const cataclysmAt = useRef<number | null>(null);
-  const invulnUntil = useRef(0);
-  const shake = useRef({ x: 0, y: 0 });
-  const state = useGame();
-  const loka = currentLoka();
-
-  // respawn / level change
-  useEffect(() => {
-    const g = groupRef.current;
-    if (!g) return;
-    g.position.set(loka.start[0], loka.start[1], loka.start[2]);
-    vel.current.set(0, 0, 0);
-    visitedForbidden.current.clear();
-  }, [state.respawnKey, state.levelKey, loka, groupRef]);
-
-  useFrame(({ camera }, rawDelta) => {
-    const delta = Math.min(rawDelta, 0.05);
-    const g = groupRef.current;
-    if (!g) return;
-    const s = getState();
-    const active = s.phase === "WORLD_ACTION" && !s.cataclysm && !s.audit;
-    const input = readInput();
-
-    // ---- movement
-    const speed = s.form === "jiva" ? 12 : 5.5;
-    let dx = 0;
-    let dz = 0;
-    if (active) {
-      if (input.up) dz -= 1;
-      if (input.down) dz += 1;
-      if (input.left) dx -= 1;
-      if (input.right) dx += 1;
-      const len = Math.hypot(dx, dz) || 1;
-      dx = (dx / len) * speed;
-      dz = (dz / len) * speed;
-    }
-    vel.current.x += (dx - vel.current.x) * (1 - Math.exp(-12 * delta));
-    vel.current.z += (dz - vel.current.z) * (1 - Math.exp(-12 * delta));
-
-    // ---- jump
-    if (active && s.form === "jiva" && grounded.current && consumeJump()) {
-      vel.current.y = 11;
-      grounded.current = false;
-      sfx.jump();
-    } else if (!active || s.form === "tortoise") {
-      consumeJump();
-    }
-
-    vel.current.y -= GRAVITY * delta;
-    g.position.x += vel.current.x * delta;
-    g.position.z += vel.current.z * delta;
-    g.position.y += vel.current.y * delta;
-
-    const half = loka.ground.w / 2 - 1.5;
-    g.position.x = THREE.MathUtils.clamp(g.position.x, -half, half);
-    g.position.z = THREE.MathUtils.clamp(g.position.z, -half, half);
-
-    const floor = topUnder(loka, g.position.x, g.position.z) + (s.form === "jiva" ? 1.0 : 0.6);
-    if (g.position.y <= floor) {
-      g.position.y = floor;
-      vel.current.y = 0;
-      grounded.current = true;
-    }
-
-    // ---- hazards
-    if (active && !s.hazardsCleared) {
-      loka.hazards.forEach((h, i) => {
-        const inside =
-          Math.abs(g.position.x - h.x) <= h.w / 2 && Math.abs(g.position.z - h.z) <= h.d / 2 && g.position.y <= 1.6;
-        if (!inside) return;
-        if (h.forbidden && !visitedForbidden.current.has(i)) {
-          visitedForbidden.current.add(i);
-          addHiddenKarma(3);
-        }
-        if (s.form === "jiva" && performance.now() > invulnUntil.current) {
-          invulnUntil.current = performance.now() + 1200;
-          damage(35);
-        }
-      });
-    }
-
-    // ---- proximity / interaction
-    const dist = (p: THREE.Vector3Like) => g.position.distanceTo(new THREE.Vector3(p.x, g.position.y, p.z));
-    const spiritV = new THREE.Vector3(...loka.spirit);
-    let near: Parameters<typeof setNear>[0] = null;
-
-    if (active) {
-      const nearSpirit = !s.portalOpen && dist(spiritV) < 4.2;
-      const npc = loka.npcs.find((n) => dist({ x: n.x, y: 0, z: n.z } as THREE.Vector3Like) < 3.4);
-      const nearSil = s.silhouetteVisible && !s.silhouetteMet && dist(SIL_POS) < 4;
-      const nearPortal = s.portalOpen && dist(new THREE.Vector3(...loka.portal)) < 3;
-
-      if (nearSpirit) near = { kind: "spirit", id: "spirit", label: "Shadow Barrier Spirit — hold E to sacrifice karma" };
-      else if (npc) near = { kind: "npc", id: npc.id, label: `${npc.label} — press E to speak` };
-      else if (nearSil) near = { kind: "silhouette", id: "silhouette", label: "??? — press E" };
-      else if (nearPortal) near = { kind: "portal", id: "portal", label: "Exit portal" };
-
-      const pressed = input.interact && !interactWasDown.current;
-
-      if (nearSpirit && input.interact) {
-        spendKarma(42 * delta);
-        if (Math.random() < delta * 6) sfx.karma();
-      }
-      if (npc && pressed && STORY_TREES[npc.treeId]) openDialogue(npc.treeId);
-      if (nearSil && pressed) openDialogue("silhouette");
-      if (nearPortal) reachPortal();
-    }
-    setNear(near);
-    interactWasDown.current = input.interact;
-
-    // ---- hidden doom timer
-    if (s.doomAt && Date.now() >= s.doomAt) triggerCataclysm();
-    if (s.cataclysm) {
-      if (cataclysmAt.current === null) cataclysmAt.current = performance.now();
-      else if (performance.now() - cataclysmAt.current > 3200) {
-        cataclysmAt.current = null;
-        resolveCataclysm();
-      }
-    } else {
-      cataclysmAt.current = null;
-    }
-
-    // ---- camera follow
-    const offset = new THREE.Vector3(0, 9, 14);
-    const target = g.position.clone().add(offset);
-    camera.position.lerp(target, 1 - Math.exp(-4 * delta));
-    const look = g.position.clone();
-    look.y += 1.4;
-    camera.lookAt(look);
-
-    // ---- camera shake during cataclysm
-    camera.position.x -= shake.current.x;
-    camera.position.y -= shake.current.y;
-    shake.current = { x: 0, y: 0 };
-    if (s.cataclysm) {
-      shake.current = { x: (Math.random() - 0.5) * 1.2, y: (Math.random() - 0.5) * 0.9 };
-      camera.position.x += shake.current.x;
-      camera.position.y += shake.current.y;
-    }
-  });
-
-  return null;
-}
-
-function PlayerMesh({ groupRef }: { groupRef: React.RefObject<THREE.Group | null> }) {
-  const state = useGame();
-  const innerRef = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }, delta) => {
-    if (innerRef.current) {
-      innerRef.current.rotation.y += delta * 1.4;
-      if (state.form === "jiva") innerRef.current.position.y = Math.sin(clock.getElapsedTime() * 2.2) * 0.12;
-      else innerRef.current.position.y = 0;
-    }
-  });
-  return (
-    <group ref={groupRef}>
-      {state.form === "jiva" ? (
-        <group>
-          <mesh ref={innerRef} castShadow>
-            <sphereGeometry args={[0.7, 28, 28]} />
-            <meshStandardMaterial color="#fff6dd" emissive="#ffd479" emissiveIntensity={2.6} roughness={0.2} />
-          </mesh>
-          <mesh>
-            <sphereGeometry args={[1.15, 20, 20]} />
-            <meshBasicMaterial color="#ffd89b" transparent opacity={0.16} />
-          </mesh>
-          <pointLight color="#ffd28a" intensity={16} distance={22} castShadow />
-        </group>
-      ) : (
-        <group>
-          <mesh ref={innerRef} castShadow>
-            <sphereGeometry args={[0.95, 22, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial color="#3d5c37" roughness={0.9} metalness={0.05} />
-          </mesh>
-          <mesh position={[0, -0.15, 0]} castShadow>
-            <boxGeometry args={[1.5, 0.35, 1.2]} />
-            <meshStandardMaterial color="#5a4630" roughness={1} />
-          </mesh>
-          <pointLight color="#9ad69a" intensity={2.5} distance={8} />
-        </group>
-      )}
-    </group>
-  );
-}
-
-/* ------------------------------- scene -------------------------------- */
-
-function Scene() {
-  const state = useGame();
-  const loka = currentLoka();
-  const playerRef = useRef<THREE.Group>(null);
-  const skyColor = state.cataclysm ? "#1a0000" : state.phase === "MOKSHA" ? "#c9a24a" : (state.fogOverride ?? loka.fogColor);
-
-  return (
-    <>
-      <color attach="background" args={[skyColor]} />
-      <fog attach="fog" args={[skyColor, loka.fogNear, loka.fogFar]} />
-      <ambientLight intensity={state.cataclysm ? 0.15 : loka.ambient} color={state.cataclysm ? "#ff5555" : "#b9a8ff"} />
-      <directionalLight
-        position={[14, 22, 10]}
-        intensity={state.cataclysm ? 0.4 : 1.1}
-        color={state.cataclysm ? "#ff6b4a" : "#cbbcff"}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-      />
-      <Environment>
-        <Lightformer intensity={1.6} color="#9f8cff" position={[0, 8, 0]} scale={[14, 14, 1]} />
-        <Lightformer intensity={0.9} color="#ffc98a" position={[-8, 3, -6]} rotation-y={Math.PI / 2} scale={[16, 3, 1]} />
-      </Environment>
-      <Stars radius={90} depth={40} count={1400} factor={3} fade speed={0.4} />
-      <Dust />
-      <Ground loka={loka} />
-      <Decor />
-      <Platforms loka={loka} />
-      <Hazards loka={loka} cleared={state.hazardsCleared} />
-      {loka.npcs.map((n) => (
-        <NpcMesh key={n.id} position={[n.x, 1.0, n.z]} talking={state.treeId === n.treeId} />
-      ))}
-      <SpiritMesh position={loka.spirit} progress={state.spiritKarma / 100} dissolved={state.portalOpen} />
-      <Portal position={loka.portal} open={state.portalOpen} />
-      {state.silhouetteVisible && <Silhouette />}
-      <PlayerMesh groupRef={playerRef} />
-      {state.coOpEnabled && <CoOpAlly playerRef={playerRef} />}
-      <PlayerRig groupRef={playerRef} />
-      {state.cataclysm && <Meteor />}
-    </>
+    <mesh position={SIL_POS}>
+      <capsuleGeometry args={[0.6, 4, 6, 12]} />
+      <meshBasicMaterial color="#000000" />
+    </mesh>
   );
 }
 
 function Meteor() {
   const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, delta) => {
+  useFrame((_, d) => {
     if (!ref.current) return;
-    ref.current.position.y -= delta * 22;
-    ref.current.rotation.x += delta * 3;
-    if (ref.current.position.y < 1) ref.current.position.y = 1;
+    ref.current.position.y = Math.max(1, ref.current.position.y - d * 22);
+    ref.current.rotation.x += d * 3;
   });
   return (
     <mesh ref={ref} position={[0, 60, 0]}>
       <dodecahedronGeometry args={[3.2, 0]} />
-      <meshStandardMaterial color="#2a0505" emissive="#ff3b1f" emissiveIntensity={2.5} roughness={0.9} />
+      <meshStandardMaterial color="#2a0505" emissive="#ff3b1f" emissiveIntensity={2.5} />
     </mesh>
+  );
+}
+
+/* ------------------------------ player ------------------------------ */
+
+type Target = { near: NonNullable<Near>; pos: THREE.Vector3; radius: number; act: () => void; hold?: boolean };
+
+function targets(): Target[] {
+  const s = getState();
+  const t: Target[] = [];
+  const talk = (id: string, pos: V3, label: string) => {
+    if (!s.talked[id]) t.push({ near: { kind: "npc", id, label }, pos: v3(pos), radius: 3.5, act: () => openDialogue(id) });
+  };
+  if (s.form === "prince") talk("mentor", PRINCE.mentor, `Speak with Drona`);
+  if (s.form === "merchant") {
+    talk("elder", MERCHANT.elder, "Hear the village elder");
+    if (s.silosUnlocked)
+      MERCHANT.silos.forEach((p, i) => {
+        if (!s.silosOpened[i]) t.push({ near: { kind: "silo", id: `silo${i}`, label: "Open the silo" }, pos: v3(p), radius: 4, act: () => openSilo(i) });
+      });
+  }
+  if (s.form === "animal") {
+    talk("calf", ANIMAL.calf, "Approach the calf");
+    t.push({ near: { kind: "pool", id: "pool", label: "Drink from the pool" }, pos: v3(ANIMAL.pool), radius: 4, act: reachPool });
+  }
+  if (s.form === "sage") {
+    talk("disciple", SAGE.disciple, "Answer your disciple");
+    if (!s.lightAligned)
+      SAGE.mirrors.forEach((p, i) =>
+        t.push({ near: { kind: "mirror", id: `m${i}`, label: "Turn the mirror" }, pos: v3(p), radius: 3, act: () => rotateMirror(i) }),
+      );
+    if (mokshaReady(s))
+      t.push({ near: { kind: "spirit", id: "spirit", label: "Hold E: give all merit" }, pos: v3(SAGE.spirit), radius: 4.5, act: () => transferMerit(1.5), hold: true });
+  }
+  if (s.silhouetteVisible && !s.silhouetteMet)
+    t.push({ near: { kind: "npc", id: "silhouette", label: "Approach the figure" }, pos: v3(SIL_POS), radius: 5, act: () => openDialogue("silhouette") });
+  return t;
+}
+
+function Player() {
+  const s = useGame();
+  const g = useRef<THREE.Group>(null);
+  const vel = useRef(new THREE.Vector3());
+  const grounded = useRef(true);
+  const prevE = useRef(false);
+  const invuln = useRef(0);
+  const info = FORMS[s.form];
+
+  useEffect(() => {
+    g.current?.position.set(START[0], START[1], START[2]);
+    vel.current.set(0, 0, 0);
+  }, [s.respawnKey]);
+
+  useFrame(({ camera }, rawDelta) => {
+    const p = g.current;
+    if (!p) return;
+    const d = Math.min(rawDelta, 0.05);
+    const st = getState();
+    const inp = readInput();
+    const canMove = st.phase === "PLAY" && !st.cataclysm;
+
+    const dir = new THREE.Vector3((inp.right ? 1 : 0) - (inp.left ? 1 : 0), 0, (inp.down ? 1 : 0) - (inp.up ? 1 : 0));
+    if (!canMove) dir.set(0, 0, 0);
+    if (dir.lengthSq() > 0) dir.normalize().multiplyScalar(info.speed);
+    vel.current.x = dir.x;
+    vel.current.z = dir.z;
+    const jump = consumeJump();
+    if (canMove && jump && grounded.current && info.jump > 0) {
+      vel.current.y = info.jump;
+      grounded.current = false;
+      sfx.jump();
+    }
+    vel.current.y -= GRAVITY * d;
+    p.position.addScaledVector(vel.current, d);
+    const half = GROUND / 2 - 1;
+    p.position.x = THREE.MathUtils.clamp(p.position.x, -half, half);
+    p.position.z = THREE.MathUtils.clamp(p.position.z, -half, half);
+
+    // floor & platforms
+    let floor = 0.7;
+    if (st.form === "animal")
+      for (const pl of ANIMAL.platforms)
+        if (Math.abs(p.position.x - pl.x) < pl.w / 2 && Math.abs(p.position.z - pl.z) < pl.d / 2 && p.position.y >= pl.y + 0.2) floor = pl.y + 0.7;
+    if (p.position.y <= floor) {
+      p.position.y = floor;
+      vel.current.y = 0;
+      grounded.current = true;
+    }
+
+    // thorn hazards
+    invuln.current = Math.max(0, invuln.current - d);
+    if (canMove && st.form === "animal" && invuln.current === 0 && p.position.y < 1.2) {
+      for (const h of ANIMAL.hazards)
+        if (Math.abs(p.position.x - h.x) < h.w / 2 && Math.abs(p.position.z - h.z) < h.d / 2) {
+          invuln.current = 1.2;
+          hurt();
+          break;
+        }
+    }
+
+    // interaction
+    let best: Target | null = null;
+    let bestD = Infinity;
+    for (const t of targets()) {
+      const dist = Math.hypot(p.position.x - t.pos.x, p.position.z - t.pos.z);
+      if (dist < t.radius && dist < bestD) {
+        best = t;
+        bestD = dist;
+      }
+    }
+    setNear(canMove && best ? best.near : null);
+    const pressed = inp.interact && !prevE.current;
+    prevE.current = inp.interact;
+    if (canMove && best && (best.hold ? inp.interact : pressed)) best.act();
+    // auto-trigger pool when walked into
+    if (canMove && st.form === "animal" && Math.hypot(p.position.x - ANIMAL.pool[0], p.position.z - ANIMAL.pool[2]) < 3) reachPool();
+
+    // camera
+    const target = p.position.clone().add(new THREE.Vector3(0, 9, 14));
+    camera.position.lerp(target, 1 - Math.exp(-4 * d));
+    if (st.cataclysm) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 0.9, 0));
+    camera.lookAt(p.position.x, p.position.y + 1.4, p.position.z);
+  });
+
+  const color = { prince: "#ffd479", merchant: "#e0b060", animal: "#8a6a4a", sage: "#fff2d0" }[s.form];
+  return (
+    <group ref={g} position={START}>
+      <mesh castShadow>
+        {s.form === "animal" ? <boxGeometry args={[1.6, 1.1, 2.2]} /> : <sphereGeometry args={[0.7, 28, 28]} />}
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={s.form === "animal" ? 0.2 : 1.6} />
+      </mesh>
+      <pointLight color={color} intensity={10} distance={18} />
+    </group>
+  );
+}
+
+/* ------------------------------ scene ------------------------------ */
+
+function Scene() {
+  const s = useGame();
+  const info = FORMS[s.form];
+  const sky = s.cataclysm ? "#1a0000" : s.phase === "MOKSHA" ? "#c9a24a" : info.fog;
+  const World = useMemo(() => ({ prince: PrinceWorld, merchant: MerchantWorld, animal: AnimalWorld, sage: SageWorld })[s.form], [s.form]);
+  return (
+    <>
+      <color attach="background" args={[sky]} />
+      <fog attach="fog" args={[sky, 18, 70]} />
+      <ambientLight intensity={s.cataclysm ? 0.15 : info.ambient} color={s.cataclysm ? "#ff5555" : "#d8ccff"} />
+      <directionalLight position={[14, 22, 10]} intensity={s.cataclysm ? 0.4 : 1.1} castShadow />
+      <Stars radius={90} depth={40} count={1200} factor={3} fade speed={0.4} />
+      <mesh rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[GROUND, GROUND]} />
+        <meshStandardMaterial color={info.ground} roughness={0.9} />
+      </mesh>
+      <World key={s.levelKey} />
+      {s.silhouetteVisible && !s.silhouetteMet && <Silhouette />}
+      {s.cataclysm && <Meteor />}
+      <Player />
+    </>
   );
 }
 
 export default function GameCanvas() {
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 12, 30], fov: 58 }} gl={{ antialias: true }}>
-      <Suspense fallback={null}>
-        <Scene />
-      </Suspense>
+    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 12, 30], fov: 58 }}>
+      <Scene />
     </Canvas>
   );
 }

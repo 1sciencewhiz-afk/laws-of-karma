@@ -41,7 +41,7 @@ function tone(freq: number, dur: number, type: OscillatorType, gain = 0.08, slid
   }
 }
 
-export const sfx: Record<string, () => unknown> & { drums: () => void; chant: () => void; chime: () => void } = {
+export const sfx = {
   unlock: () => ac(),
   jump: () => tone(520, 0.22, "sine", 0.06, 880),
   swap: () => tone(300, 0.3, "triangle", 0.06, 180),
