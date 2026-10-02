@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
-import { FORM_TREE, FORMS, MOKSHA_THRESHOLD, STORY_TREES, TRIAL_STAGES, type Effect, type Form, type Node, type Seed } from "./data";
+import { FORMS, MOKSHA_THRESHOLD, STORY_TREES, type Effect, type Form, type Node, type Seed } from "./data";
 import { sfx, setMuted } from "./audio";
 
-export type Phase = "INTRO" | "PLAY" | "SETUP" | "DIALOGUE" | "PERFORMANCE" | "AUDIT" | "MOKSHA";
+export type Phase = "INTRO" | "PLAY" | "DIALOGUE" | "AUDIT" | "MOKSHA";
 
 export type Atman = {
   jnana: number;
@@ -16,8 +16,6 @@ export type Atman = {
 
 export type Seeds = Record<Seed, number>;
 export type Audit = { reason: string; form: Form; seeds: Seeds; next: Form; endsAt: number };
-export type Performance = { sceneId: string; seed: Seed; caption: string; startedAt: number; endsAt: number; nextNode: string | null; completesLife: boolean };
-export type EncounterSetup = { treeId: string; nodeId: string; sceneId: string; endsAt: number };
 
 export type GameState = {
   phase: Phase;
@@ -27,7 +25,6 @@ export type GameState = {
   seeds: Seeds; // this life
   atman: Atman;
   objective: number;
-  trialIndex: number;
   lifeEndAt: number | null;
   lifeEndReason: string;
   treeId: string | null;
@@ -53,8 +50,6 @@ export type GameState = {
   doomAt: number | null;
   cataclysm: boolean;
   audit: Audit | null;
-  performance: Performance | null;
-  encounterSetup: EncounterSetup | null;
 };
 
 const zeroSeeds = (): Seeds => ({ nishkama: 0, sakam: 0, adharma: 0 });
@@ -65,7 +60,6 @@ function lifeState(form: Form): Partial<GameState> {
     age: 0,
     seeds: zeroSeeds(),
     objective: 0,
-    trialIndex: 0,
     lifeEndAt: null,
     lifeEndReason: "",
     health: 3,
@@ -98,8 +92,6 @@ function initial(): GameState {
     doomAt: null,
     cataclysm: false,
     audit: null,
-    performance: null,
-    encounterSetup: null,
   } as GameState;
 }
 
@@ -173,17 +165,10 @@ function applyEffect(e: Effect | undefined) {
   if (e.complete) completeLife("Your dharma in this life has played out.");
 }
 
-export function openDialogue(treeId: string, nodeId = "start") {
+export function openDialogue(treeId: string) {
   if (!STORY_TREES[treeId]) return;
   sfx.talk();
-  const stage = TRIAL_STAGES[state.form].find((item) => item.tree === treeId && item.node === nodeId);
-  set({
-    treeId,
-    nodeId,
-    phase: stage ? "SETUP" : "DIALOGUE",
-    encounterSetup: stage ? { treeId, nodeId, sceneId: stage.id, endsAt: Date.now() + 1600 } : null,
-    talked: { ...state.talked, [`${treeId}:${nodeId}`]: true },
-  });
+  set({ treeId, nodeId: "start", phase: "DIALOGUE", talked: { ...state.talked, [treeId]: true } });
 }
 
 export function chooseOption(index: number) {
@@ -194,44 +179,12 @@ export function chooseOption(index: number) {
   if (choice.tag === "nishkama") sfx.chant();
   if (state.form === "prince" && choice.effect?.seed) sfx.drums();
   const wasSil = state.treeId === "silhouette";
-  const stage = TRIAL_STAGES[state.form][state.trialIndex];
-  const completesLife = Boolean(choice.effect?.complete);
-  const effect = choice.effect ? { ...choice.effect, complete: false } : undefined;
-  applyEffect(effect);
+  applyEffect(choice.effect);
+  if (choice.next) return set({ nodeId: choice.next });
   if (wasSil) {
     return set({ treeId: null, nodeId: null, phase: "PLAY", silhouetteMet: true, doomAt: Date.now() + 300_000 });
   }
-  const now = Date.now();
-  set({
-    phase: "PERFORMANCE",
-    performance: {
-      sceneId: stage?.id ?? `${FORM_TREE[state.form]}-${state.trialIndex}`,
-      seed: choice.tag ?? "sakam",
-      caption: choice.effect?.journal ?? choice.label,
-      startedAt: now,
-      endsAt: now + 4200,
-      nextNode: choice.next ?? null,
-      completesLife,
-    },
-  });
-}
-
-function finishPerformance() {
-  const performance = state.performance;
-  if (!performance) return;
-  if (performance.completesLife) {
-    set({ performance: null, treeId: null, nodeId: null, phase: "PLAY" });
-    completeLife("Your four trials in this life have played out.");
-    return;
-  }
-  set({
-    performance: null,
-    phase: "PLAY",
-    treeId: null,
-    nodeId: null,
-    trialIndex: Math.min(3, state.trialIndex + 1),
-    objective: Math.min(3, state.objective + 1),
-  });
+  set({ treeId: null, nodeId: null, phase: state.phase === "DIALOGUE" ? "PLAY" : state.phase });
 }
 
 function completeLife(reason: string) {
@@ -291,14 +244,6 @@ export function transferMerit(amount: number) {
 /** Called every 0.5s from the route. */
 export function tick(dt: number) {
   const s = state;
-  if (s.phase === "PERFORMANCE" && s.performance && Date.now() >= s.performance.endsAt) {
-    finishPerformance();
-    return;
-  }
-  if (s.phase === "SETUP" && s.encounterSetup && Date.now() >= s.encounterSetup.endsAt) {
-    set({ phase: "DIALOGUE", encounterSetup: null });
-    return;
-  }
   if (s.doomAt && Date.now() >= s.doomAt && !s.cataclysm) {
     sfx.rumble();
     set({ cataclysm: true, doomAt: null });
@@ -334,8 +279,6 @@ function endLife(reason: string, forced?: Form) {
     treeId: null,
     nodeId: null,
     audit: { reason, form: state.form, seeds: state.seeds, next, endsAt: Date.now() + 8000 },
-    performance: null,
-    encounterSetup: null,
   });
   setTimeout(rebirth, 8000);
 }

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect } from "react";
-import { AuditOverlay, DialogueOverlay, HUD, IntroOverlay, JournalOverlay, MokshaOverlay, PerformanceOverlay } from "@/components/game/Overlays";
+import { AuditOverlay, DialogueOverlay, HUD, IntroOverlay, JournalOverlay, MokshaOverlay } from "@/components/game/Overlays";
 import { bindKeyboard } from "@/game/input";
 import { tick, toggleJournal, useGame } from "@/game/store";
 import { sfx } from "@/game/audio";
@@ -54,7 +54,6 @@ function LawsOfKarma() {
       </Suspense>
       <HUD />
       <DialogueOverlay />
-      <PerformanceOverlay />
       <JournalOverlay />
       <AuditOverlay />
       <MokshaOverlay />

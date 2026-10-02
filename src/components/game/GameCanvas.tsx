@@ -4,7 +4,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars } from "@react-three/drei";
 import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { ANIMAL, FORMS, GROUND, MERCHANT, PRINCE, SAGE, SIL_POS, START, TRIAL_STAGES, type V3 } from "@/game/data";
+import { ANIMAL, FORMS, GROUND, MERCHANT, PRINCE, SAGE, SIL_POS, START, type V3 } from "@/game/data";
 import {
   getState,
   hurt,
@@ -19,7 +19,6 @@ import {
 import { setNear, type Near } from "@/game/proximity";
 import { consumeJump, readInput } from "@/game/input";
 import { sfx } from "@/game/audio";
-import { TrialScenes } from "./TrialScenes";
 
 const GRAVITY = 26;
 const v3 = (p: V3) => new THREE.Vector3(p[0], p[1], p[2]);
@@ -200,10 +199,27 @@ function targets(): Target[] {
   const talk = (id: string, pos: V3, label: string) => {
     if (!s.talked[id]) t.push({ near: { kind: "npc", id, label }, pos: v3(pos), radius: 3.5, act: () => openDialogue(id) });
   };
-  const stage = TRIAL_STAGES[s.form][s.trialIndex];
-  if (stage && !s.lifeEndAt) t.push({ near: { kind: "trial", id: stage.id, label: stage.label }, pos: v3(stage.position), radius: 4, act: () => openDialogue(stage.tree, stage.node) });
-  if (s.form === "sage" && mokshaReady(s))
-    t.push({ near: { kind: "spirit", id: "spirit", label: "Hold E: give all merit" }, pos: v3(SAGE.spirit), radius: 4.5, act: () => transferMerit(1.5), hold: true });
+  if (s.form === "prince") talk("mentor", PRINCE.mentor, `Speak with Drona`);
+  if (s.form === "merchant") {
+    talk("elder", MERCHANT.elder, "Hear the village elder");
+    if (s.silosUnlocked)
+      MERCHANT.silos.forEach((p, i) => {
+        if (!s.silosOpened[i]) t.push({ near: { kind: "silo", id: `silo${i}`, label: "Open the silo" }, pos: v3(p), radius: 4, act: () => openSilo(i) });
+      });
+  }
+  if (s.form === "animal") {
+    talk("calf", ANIMAL.calf, "Approach the calf");
+    t.push({ near: { kind: "pool", id: "pool", label: "Drink from the pool" }, pos: v3(ANIMAL.pool), radius: 4, act: reachPool });
+  }
+  if (s.form === "sage") {
+    talk("disciple", SAGE.disciple, "Answer your disciple");
+    if (!s.lightAligned)
+      SAGE.mirrors.forEach((p, i) =>
+        t.push({ near: { kind: "mirror", id: `m${i}`, label: "Turn the mirror" }, pos: v3(p), radius: 3, act: () => rotateMirror(i) }),
+      );
+    if (mokshaReady(s))
+      t.push({ near: { kind: "spirit", id: "spirit", label: "Hold E: give all merit" }, pos: v3(SAGE.spirit), radius: 4.5, act: () => transferMerit(1.5), hold: true });
+  }
   if (s.silhouetteVisible && !s.silhouetteMet)
     t.push({ near: { kind: "npc", id: "silhouette", label: "Approach the figure" }, pos: v3(SIL_POS), radius: 5, act: () => openDialogue("silhouette") });
   return t;
@@ -284,6 +300,9 @@ function Player() {
     const pressed = inp.interact && !prevE.current;
     prevE.current = inp.interact;
     if (canMove && best && (best.hold ? inp.interact : pressed)) best.act();
+    // auto-trigger pool when walked into
+    if (canMove && st.form === "animal" && Math.hypot(p.position.x - ANIMAL.pool[0], p.position.z - ANIMAL.pool[2]) < 3) reachPool();
+
     // camera
     const target = p.position.clone().add(new THREE.Vector3(0, 9, 14));
     camera.position.lerp(target, 1 - Math.exp(-4 * d));
@@ -322,7 +341,6 @@ function Scene() {
         <meshStandardMaterial color={info.ground} roughness={0.9} />
       </mesh>
       <World key={s.levelKey} />
-      <TrialScenes form={s.form} />
       {s.silhouetteVisible && !s.silhouetteMet && <Silhouette />}
       {s.cataclysm && <Meteor />}
       <Player />
