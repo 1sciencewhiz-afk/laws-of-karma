@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { FORM_TREE, FORMS, MOKSHA_THRESHOLD, STORY_TREES, TRIAL_STAGES, type Effect, type Form, type Node, type Seed } from "./data";
 import { sfx, setMuted } from "./audio";
 
-export type Phase = "INTRO" | "PLAY" | "DIALOGUE" | "PERFORMANCE" | "AUDIT" | "MOKSHA";
+export type Phase = "INTRO" | "PLAY" | "SETUP" | "DIALOGUE" | "PERFORMANCE" | "AUDIT" | "MOKSHA";
 
 export type Atman = {
   jnana: number;
@@ -17,6 +17,7 @@ export type Atman = {
 export type Seeds = Record<Seed, number>;
 export type Audit = { reason: string; form: Form; seeds: Seeds; next: Form; endsAt: number };
 export type Performance = { sceneId: string; seed: Seed; caption: string; startedAt: number; endsAt: number; nextNode: string | null; completesLife: boolean };
+export type EncounterSetup = { treeId: string; nodeId: string; sceneId: string; endsAt: number };
 
 export type GameState = {
   phase: Phase;
@@ -53,6 +54,7 @@ export type GameState = {
   cataclysm: boolean;
   audit: Audit | null;
   performance: Performance | null;
+  encounterSetup: EncounterSetup | null;
 };
 
 const zeroSeeds = (): Seeds => ({ nishkama: 0, sakam: 0, adharma: 0 });
@@ -97,6 +99,7 @@ function initial(): GameState {
     cataclysm: false,
     audit: null,
     performance: null,
+    encounterSetup: null,
   } as GameState;
 }
 
@@ -173,7 +176,14 @@ function applyEffect(e: Effect | undefined) {
 export function openDialogue(treeId: string, nodeId = "start") {
   if (!STORY_TREES[treeId]) return;
   sfx.talk();
-  set({ treeId, nodeId, phase: "DIALOGUE", talked: { ...state.talked, [`${treeId}:${nodeId}`]: true } });
+  const stage = TRIAL_STAGES[state.form].find((item) => item.tree === treeId && item.node === nodeId);
+  set({
+    treeId,
+    nodeId,
+    phase: stage ? "SETUP" : "DIALOGUE",
+    encounterSetup: stage ? { treeId, nodeId, sceneId: stage.id, endsAt: Date.now() + 1600 } : null,
+    talked: { ...state.talked, [`${treeId}:${nodeId}`]: true },
+  });
 }
 
 export function chooseOption(index: number) {
@@ -285,6 +295,10 @@ export function tick(dt: number) {
     finishPerformance();
     return;
   }
+  if (s.phase === "SETUP" && s.encounterSetup && Date.now() >= s.encounterSetup.endsAt) {
+    set({ phase: "DIALOGUE", encounterSetup: null });
+    return;
+  }
   if (s.doomAt && Date.now() >= s.doomAt && !s.cataclysm) {
     sfx.rumble();
     set({ cataclysm: true, doomAt: null });
@@ -321,6 +335,7 @@ function endLife(reason: string, forced?: Form) {
     nodeId: null,
     audit: { reason, form: state.form, seeds: state.seeds, next, endsAt: Date.now() + 8000 },
     performance: null,
+    encounterSetup: null,
   });
   setTimeout(rebirth, 8000);
 }
