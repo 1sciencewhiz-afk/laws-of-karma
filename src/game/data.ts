@@ -137,6 +137,45 @@ export type Choice = { label: string; tag?: Seed; effect?: Effect; next?: string
 export type Node = { speaker: string; text: string; choices: Choice[]; title?: string };
 export type Tree = Record<string, Node>;
 
+export type TrialStage = {
+  id: string;
+  tree: string;
+  node: string;
+  position: V3;
+  label: string;
+  kind: "battle" | "mercy" | "city" | "court" | "famine" | "trade" | "widow" | "temple" | "calf" | "plough" | "tiger" | "trough" | "teaching" | "hunter" | "debate" | "palace";
+};
+
+export const FORM_TREE: Record<Form, string> = { prince: "mentor", merchant: "elder", animal: "calf", sage: "disciple" };
+
+/** The four physical encounters in each life, ordered along a walkable route. */
+export const TRIAL_STAGES: Record<Form, TrialStage[]> = {
+  prince: [
+    { id: "prince-battle", tree: "mentor", node: "start", position: [0, 0, 5], label: "Face Drona", kind: "battle" },
+    { id: "prince-mercy", tree: "mentor", node: "s1", position: [11, 0, -3], label: "Approach the wounded soldier", kind: "mercy" },
+    { id: "prince-city", tree: "mentor", node: "s2", position: [0, 0, -17], label: "Enter the conquered city", kind: "city" },
+    { id: "prince-court", tree: "mentor", node: "s3", position: [-13, 0, -6], label: "Hear the Queen", kind: "court" },
+  ],
+  merchant: [
+    { id: "merchant-famine", tree: "elder", node: "start", position: [0, 0, 5], label: "Hear the village elder", kind: "famine" },
+    { id: "merchant-trade", tree: "elder", node: "s1", position: [-11, 0, -8], label: "Meet the rival trader", kind: "trade" },
+    { id: "merchant-widow", tree: "elder", node: "s2", position: [10, 0, -8], label: "Meet the widow", kind: "widow" },
+    { id: "merchant-temple", tree: "elder", node: "s3", position: [0, 0, -21], label: "Attend the temple dedication", kind: "temple" },
+  ],
+  animal: [
+    { id: "animal-calf", tree: "calf", node: "start", position: [10, 0, 7], label: "Approach the trapped calf", kind: "calf" },
+    { id: "animal-plough", tree: "calf", node: "s1", position: [-11, 0, 0], label: "Approach the farmer", kind: "plough" },
+    { id: "animal-tiger", tree: "calf", node: "s2", position: [10, 0, -13], label: "Protect the herd", kind: "tiger" },
+    { id: "animal-trough", tree: "calf", node: "s3", position: [0, 0, -24], label: "Approach the trough", kind: "trough" },
+  ],
+  sage: [
+    { id: "sage-teaching", tree: "disciple", node: "start", position: [9, 0, 8], label: "Teach your disciple", kind: "teaching" },
+    { id: "sage-hunter", tree: "disciple", node: "s1", position: [-10, 0, 4], label: "Approach the sick hunter", kind: "hunter" },
+    { id: "sage-debate", tree: "disciple", node: "s2", position: [-8, 0, -12], label: "Meet the rival sage", kind: "debate" },
+    { id: "sage-palace", tree: "disciple", node: "s3", position: [8, 0, -22], label: "Receive the royal messenger", kind: "palace" },
+  ],
+};
+
 type Opt = { label: string; journal: string; extra?: Effect };
 type Scene = { speaker: string; text: string; n: Opt; s: Opt; a: Opt; first?: Effect };
 
