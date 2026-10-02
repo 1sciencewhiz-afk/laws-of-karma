@@ -134,84 +134,159 @@ export type Effect = {
 };
 
 export type Choice = { label: string; tag?: Seed; effect?: Effect; next?: string };
-export type Node = { speaker: string; text: string; choices: Choice[] };
+export type Node = { speaker: string; text: string; choices: Choice[]; title?: string };
 export type Tree = Record<string, Node>;
 
+type Opt = { label: string; journal: string; extra?: Effect };
+type Scene = { speaker: string; text: string; n: Opt; s: Opt; a: Opt; first?: Effect };
+
+/** Builds a tree of several scenarios played back-to-back. Every choice leads to the next scenario. */
+function chain(life: string, scenes: Scene[], completeAtEnd: boolean): Tree {
+  const tree: Tree = {};
+  scenes.forEach((sc, i) => {
+    const last = i === scenes.length - 1;
+    const next = last ? undefined : `s${i + 1}`;
+    const mk = (o: Opt, seed: Seed, base: Effect): Choice => ({
+      label: o.label,
+      tag: seed,
+      ...(next ? { next } : {}),
+      effect: { seed, ...base, ...o.extra, journal: `As a ${life}, ${o.journal}`, complete: last && completeAtEnd },
+    });
+    tree[i === 0 ? "start" : `s${i}`] = {
+      title: `Trial ${i + 1} of ${scenes.length}`,
+      speaker: sc.speaker,
+      text: sc.text,
+      choices: [
+        mk(sc.n, "nishkama", { jnana: 4, vairagya: 5 }),
+        mk(sc.s, "sakam", { jnana: 1, vairagya: -2 }),
+        mk(sc.a, "adharma", { vairagya: -4, badKarma: 2 }),
+      ],
+    };
+  });
+  return tree;
+}
+
 export const STORY_TREES: Record<string, Tree> = {
-  mentor: {
-    start: {
+  mentor: chain("prince", [
+    {
       speaker: "Drona, your teacher",
       text: "So, my student stands against me. Five thousand men wait on your signal, and five thousand on mine. What will you do, Prince?",
-      choices: [
-        {
-          label: "Fight because it is my duty, and give up any claim to the outcome.",
-          tag: "nishkama",
-          effect: { seed: "nishkama", jnana: 10, vairagya: 12, journal: "As a prince, you fought out of duty and let go of victory.", complete: true },
-          next: "nishkama",
-        },
-        {
-          label: "Fight for glory. Songs will be sung of my conquest.",
-          tag: "sakam",
-          effect: { seed: "sakam", jnana: 3, vairagya: -4, journal: "As a prince, you fought for fame and conquest.", complete: true },
-          next: "sakam",
-        },
-        {
-          label: "Drop my bow and flee, leaving my soldiers to die.",
-          tag: "adharma",
-          effect: { seed: "adharma", vairagya: -8, badKarma: 4, journal: "As a prince, you deserted your army.", complete: true },
-          next: "adharma",
-        },
-      ],
+      n: { label: "Fight because it is my duty, and give up any claim to the outcome.", journal: "you fought out of duty and let go of victory." },
+      s: { label: "Fight for glory. Songs will be sung of my conquest.", journal: "you fought for fame and conquest." },
+      a: { label: "Drop my bow and flee, leaving my soldiers to die.", journal: "you deserted your army." },
     },
-    nishkama: { speaker: "Drona", text: "Then fight without hatred. I am proud of you, whatever happens.", choices: [{ label: "Raise the conch." }] },
-    sakam: { speaker: "Drona", text: "Glory is a river. It never keeps its shape.", choices: [{ label: "Sound the drums." }] },
-    adharma: { speaker: "Drona", text: "The men who trusted you will remember this. So will the wheel.", choices: [{ label: "Run." }] },
-  },
-  elder: {
-    start: {
+    {
+      speaker: "A wounded enemy soldier",
+      text: "At dusk you find a boy from the enemy ranks, bleeding in the mud. He begs for water. Your guards watch you.",
+      n: { label: "Give him water and send him to the healers. He is no enemy now.", journal: "you showed mercy to a fallen enemy." },
+      s: { label: "Help him loudly, so the army sees how merciful I am.", journal: "you showed mercy so others would praise you." },
+      a: { label: "Leave him. Better, take his armour as a trophy.", journal: "you stripped a dying boy for trophies." },
+    },
+    {
+      speaker: "Your general",
+      text: "The battle is won. The enemy city lies open, full of gold and frightened families. The men want plunder.",
+      n: { label: "Forbid looting. Protect the city as if it were our own.", journal: "you protected a conquered city." },
+      s: { label: "Spare the people, but take the treasury to build my monument.", journal: "you took the treasury for your own monument." },
+      a: { label: "Let the men take whatever they want.", journal: "you let your army plunder the innocent." },
+    },
+    {
+      speaker: "Your old mother, the Queen",
+      text: "Years later the crown is yours. Your brother, who once fought against you, kneels and asks forgiveness.",
+      n: { label: "Embrace him. The war is over, and so is my anger.", journal: "you forgave your brother." },
+      s: { label: "Forgive him in public, so the court sees a generous king.", journal: "you forgave your brother for the court's applause." },
+      a: { label: "Exile him and seize his lands.", journal: "you exiled your brother and took his lands." },
+    },
+  ], true),
+  elder: chain("merchant", [
+    {
       speaker: "Village Elder",
       text: "Merchant, the wells are dust and the children are thin. Your silos hold enough for all of us. What will you do?",
-      choices: [
-        {
-          label: "Open the silos to everyone. Nothing is owed.",
-          tag: "nishkama",
-          effect: { seed: "nishkama", jnana: 8, vairagya: 12, unlockSilos: true, journal: "As a merchant, you gave your grain freely during the famine." },
-        },
-        {
-          label: "Sell the grain at a fair price, and make sure they remember my generosity.",
-          tag: "sakam",
-          effect: { seed: "sakam", jnana: 3, vairagya: -3, unlockSilos: true, journal: "As a merchant, you traded grain for praise and profit." },
-        },
-        {
-          label: "Hoard it. Prices will triple next month.",
-          tag: "adharma",
-          effect: { seed: "adharma", vairagya: -8, badKarma: 4, unlockSilos: true, hoard: true, journal: "As a merchant, you hoarded grain while the village starved." },
-        },
-      ],
+      n: { label: "Open the silos to everyone. Nothing is owed.", journal: "you gave your grain freely during the famine.", extra: { unlockSilos: true } },
+      s: { label: "Sell the grain at a fair price, and make sure they remember my generosity.", journal: "you traded grain for praise and profit.", extra: { unlockSilos: true } },
+      a: { label: "Hoard it. Prices will triple next month.", journal: "you hoarded grain while the village starved.", extra: { unlockSilos: true, hoard: true } },
     },
-  },
-  calf: {
-    start: {
+    {
+      speaker: "A rival trader",
+      text: "A rival whispers: 'Mix sand into the sacks. Nobody weighs grain carefully in a famine. We'd double our profit.'",
+      n: { label: "Refuse. Every sack will be honest weight.", journal: "you refused to cheat the starving." },
+      s: { label: "Refuse, then tell everyone how honest I am.", journal: "you stayed honest mostly for your reputation." },
+      a: { label: "Agree. Hungry people won't notice.", journal: "you sold sand to the starving." },
+    },
+    {
+      speaker: "A widow with empty hands",
+      text: "A widow with no coins asks for one sack for her three children. Your clerk says it will set a bad example.",
+      n: { label: "Give her two sacks and ask nothing.", journal: "you fed a widow and asked nothing." },
+      s: { label: "Give it, but have my name carved over her door.", journal: "you helped a widow for public credit." },
+      a: { label: "Turn her away. Business is business.", journal: "you turned away a starving widow." },
+    },
+    {
+      speaker: "The monsoon priest",
+      text: "The rains return. The village wants to build a temple and name it after you. The priest asks what you wish.",
+      n: { label: "Name it for the village. I only did what was right.", journal: "you refused to have the temple named after you." },
+      s: { label: "Yes, carve my name in gold above the gate.", journal: "you put your name above the temple gate." },
+      a: { label: "Only if they repay every grain, with interest.", journal: "you demanded payment from a recovering village." },
+    },
+  ], false),
+  calf: chain("ox", [
+    {
       speaker: "A trapped calf",
       text: "A calf is caught in the thorns, bleating. The herd has moved on. You are thirsty and tired.",
-      choices: [
-        { label: "Break the thorns with your horns and free it.", tag: "nishkama", effect: { seed: "nishkama", jnana: 5, vairagya: 8, journal: "As an ox, you freed a trapped calf." } },
-        { label: "Free it, hoping the herd will let you lead.", tag: "sakam", effect: { seed: "sakam", jnana: 2, journal: "As an ox, you helped a calf to gain status in the herd." } },
-        { label: "Trample past it toward the water.", tag: "adharma", effect: { seed: "adharma", vairagya: -6, badKarma: 3, journal: "As an ox, you trampled a helpless calf." } },
-      ],
+      n: { label: "Break the thorns with your horns and free it.", journal: "you freed a trapped calf." },
+      s: { label: "Free it, hoping the herd will let you lead.", journal: "you helped a calf to gain status in the herd." },
+      a: { label: "Trample past it toward the water.", journal: "you trampled a helpless calf." },
     },
-  },
-  disciple: {
-    start: {
+    {
+      speaker: "Your farmer",
+      text: "The old farmer is too weak to plough. The field must be turned before the rains, or his family will go hungry.",
+      n: { label: "Pull the plough all day without being driven.", journal: "you ploughed for your farmer without complaint." },
+      s: { label: "Work hard, but only while he has sweet grass for me.", journal: "you worked only for treats." },
+      a: { label: "Kick the plough over and wander off.", journal: "you abandoned a struggling farmer." },
+    },
+    {
+      speaker: "A tiger in the reeds",
+      text: "A tiger stalks the young of the herd. You are strong enough to stand between them, but it may cost you dearly.",
+      n: { label: "Stand firm in front of the young.", journal: "you guarded the herd against a tiger." },
+      s: { label: "Stand firm, so the herd names me its leader.", journal: "you faced the tiger to win leadership." },
+      a: { label: "Push a weaker ox toward the tiger and escape.", journal: "you sacrificed another to save yourself." },
+    },
+    {
+      speaker: "An old ox at the trough",
+      text: "At the last trough an old, slow ox is drinking. There is only room for one of you at a time.",
+      n: { label: "Wait patiently until it has finished.", journal: "you waited patiently for an elder." },
+      s: { label: "Wait, but make sure the herd sees it.", journal: "you showed patience for others to see." },
+      a: { label: "Shove it away from the water.", journal: "you drove an old ox from the water." },
+    },
+  ], false),
+  disciple: chain("sage", [
+    {
       speaker: "Young Disciple",
       text: "Guruji, the kings offer gold for your teaching. Should the wisdom of the light be sold, kept, or given?",
-      choices: [
-        { label: "Given freely to anyone who asks.", tag: "nishkama", effect: { seed: "nishkama", jnana: 12, vairagya: 12, journal: "As a sage, you taught freely.", complete: true } },
-        { label: "Taught to kings, so our ashram grows famous.", tag: "sakam", effect: { seed: "sakam", jnana: 4, vairagya: -4, journal: "As a sage, you taught for renown.", complete: true } },
-        { label: "Kept hidden. The foolish do not deserve it.", tag: "adharma", effect: { seed: "adharma", vairagya: -8, badKarma: 4, journal: "As a sage, you hoarded wisdom out of contempt.", complete: true } },
-      ],
+      n: { label: "Given freely to anyone who asks.", journal: "you taught freely." },
+      s: { label: "Taught to kings, so our ashram grows famous.", journal: "you taught for renown." },
+      a: { label: "Kept hidden. The foolish do not deserve it.", journal: "you hoarded wisdom out of contempt." },
     },
-  },
+    {
+      speaker: "A hunter at the ashram gate",
+      text: "A hunter who killed deer in your forest arrives, starving and feverish. Your disciples want to send him away.",
+      n: { label: "Bring him in and nurse him back to health.", journal: "you cared for a hunter who had wronged the forest." },
+      s: { label: "Heal him, then make him swear to spread word of my kindness.", journal: "you healed a man in exchange for fame." },
+      a: { label: "Curse him and drive him out.", journal: "you cursed a sick man at your gate." },
+    },
+    {
+      speaker: "A rival sage",
+      text: "A famous rival challenges you to a public debate. You know a secret that could humiliate him.",
+      n: { label: "Debate only the ideas, and praise his good points.", journal: "you debated with honesty and respect." },
+      s: { label: "Debate fairly, but make sure I'm seen to win.", journal: "you debated to be seen as the wisest." },
+      a: { label: "Reveal his secret and shame him.", journal: "you destroyed a rival with a secret." },
+    },
+    {
+      speaker: "The king's messenger",
+      text: "The king offers to make you royal guru: a palace, servants and power. You would have to leave the forest.",
+      n: { label: "Decline. A palace is just another cage.", journal: "you turned down the palace." },
+      s: { label: "Accept. Think of the honour!", journal: "you accepted a palace for honour." },
+      a: { label: "Accept, and use the power to punish those who doubted me.", journal: "you took power to settle old scores." },
+    },
+  ], true),
   silhouette: {
     start: {
       speaker: "???",
