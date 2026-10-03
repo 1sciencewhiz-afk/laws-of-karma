@@ -163,6 +163,20 @@ export function DialogueOverlay() {
   );
 }
 
+export function PerformanceOverlay() {
+  const s = useGame();
+  if (s.phase !== "PERFORMANCE" || !s.performance) return null;
+  const path = s.performance.seed === "nishkama" ? "SELFLESS ACTION" : s.performance.seed === "sakam" ? "ACTION WITH DESIRE" : "ADHARMA";
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-32 z-30 flex justify-center px-4">
+      <div className={`animate-fade-in max-w-lg ${panel} px-5 py-3 text-center`}>
+        <p className={`text-[10px] font-semibold uppercase tracking-widest ${gold}`}>{path} · The deed unfolds</p>
+        <p className="mt-1 text-sm leading-relaxed">{s.performance.caption}</p>
+      </div>
+    </div>
+  );
+}
+
 export function JournalOverlay() {
   const s = useGame();
   if (!s.journalOpen) return null;
