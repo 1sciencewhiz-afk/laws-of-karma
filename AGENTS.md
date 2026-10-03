@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Narrative trials use a timed approach → choice → 3D performance → next-trial state machine so consequences are shown before progression.
+- Each trial owns its environment profile and local landmark set so progression visibly changes the map without introducing separate levels.

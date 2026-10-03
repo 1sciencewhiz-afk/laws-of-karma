@@ -40,6 +40,49 @@ function Marker({ active }: { active: boolean }) {
   return <group ref={ref}><mesh><octahedronGeometry args={[0.35, 0]} /><meshStandardMaterial color="#fff0a8" emissive="#ffd86a" emissiveIntensity={4} /></mesh><pointLight color="#ffd86a" intensity={8} distance={9} /></group>;
 }
 
+function Tree({ position, bare = false }: { position: V3; bare?: boolean }) {
+  return <group position={position}><mesh position={[0, 1.5, 0]} castShadow><cylinderGeometry args={[0.2, 0.32, 3, 7]} /><meshStandardMaterial color="#59452f" /></mesh>{!bare && <mesh position={[0, 3.2, 0]} castShadow><dodecahedronGeometry args={[1.25, 0]} /><meshStandardMaterial color="#35543a" roughness={1} /></mesh>}</group>;
+}
+
+function Hut({ position, damaged = false }: { position: V3; damaged?: boolean }) {
+  return <group position={position} rotation-z={damaged ? 0.08 : 0}><mesh position={[0, 1.1, 0]} castShadow><boxGeometry args={[3.2, 2.2, 2.8]} /><meshStandardMaterial color="#806444" roughness={1} /></mesh><mesh position={[0, 2.65, 0]} rotation-y={Math.PI / 4}><coneGeometry args={[2.45, 1.7, 4]} /><meshStandardMaterial color={damaged ? "#45352c" : "#604229"} /></mesh></group>;
+}
+
+function Column({ position }: { position: V3 }) {
+  return <group position={position}><mesh position={[0, 1.7, 0]} castShadow><cylinderGeometry args={[0.32, 0.42, 3.4, 10]} /><meshStandardMaterial color="#b9a57c" /></mesh><mesh position={[0, 3.45, 0]}><boxGeometry args={[0.9, 0.25, 0.9]} /><meshStandardMaterial color="#d1bd8f" /></mesh></group>;
+}
+
+function TrialMap({ stage }: { stage: TrialStage }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame((_, rawDelta) => {
+    if (!ref.current) return;
+    const dt = Math.min(rawDelta, 0.05);
+    const scale = THREE.MathUtils.damp(ref.current.scale.x, 1, 5, dt);
+    ref.current.scale.setScalar(scale);
+  });
+  const k = stage.kind;
+  return (
+    <group ref={ref} position={stage.position} scale={0.86}>
+      {k === "battle" && <>{[-7, -3, 3, 7].map((x) => <group key={x} position={[x, 0, -4]}><mesh position={[0, 1.6, 0]}><cylinderGeometry args={[0.07, 0.07, 3.2, 6]} /><meshStandardMaterial color="#6c4b2b" /></mesh><mesh position={[0.7, 2.6, 0]} rotation-z={-0.5}><planeGeometry args={[1.5, 0.8]} /><meshStandardMaterial color={x < 0 ? "#9b342f" : "#c69b42"} side={THREE.DoubleSide} /></mesh></group>)}</>}
+      {k === "mercy" && <><mesh position={[0, 0.08, 0]} rotation-x={-Math.PI / 2}><circleGeometry args={[7, 32]} /><meshStandardMaterial color="#463b38" roughness={1} /></mesh>{[-5, 5].map((x) => <mesh key={x} position={[x, 0.22, -2]} rotation-z={0.4}><boxGeometry args={[2.2, 0.18, 0.22]} /><meshStandardMaterial color="#574631" /></mesh>)}</>}
+      {k === "city" && <>{[-7, 7].map((x) => <group key={x}><mesh position={[x, 2.2, -3]} castShadow><boxGeometry args={[4, 4.4, 2]} /><meshStandardMaterial color="#76634f" /></mesh><mesh position={[x, 4.7, -3]}><coneGeometry args={[2.5, 1.5, 4]} /><meshStandardMaterial color="#57352e" /></mesh></group>)}<mesh position={[0, 0.06, 0]} rotation-x={-Math.PI / 2}><planeGeometry args={[8, 15]} /><meshStandardMaterial color="#7d6b55" /></mesh></>}
+      {k === "court" && <><mesh position={[0, 0.12, -2]}><boxGeometry args={[15, 0.24, 11]} /><meshStandardMaterial color="#5d2941" /></mesh>{[-6, -3, 3, 6].map((x) => <Column key={x} position={[x, 0, -6]} />)}<mesh position={[0, 4.8, -6]}><boxGeometry args={[14, 0.35, 1.4]} /><meshStandardMaterial color="#c09545" /></mesh></>}
+      {k === "famine" && <><Tree position={[-6, 0, -4]} bare /><Tree position={[7, 0, -5]} bare /><Hut position={[-7, 0, 3]} damaged /><Hut position={[7, 0, 2]} damaged />{[-5, 0, 5].map((x) => <mesh key={x} position={[x, 0.04, -8]} rotation-x={-Math.PI / 2}><ringGeometry args={[1.6, 1.72, 20]} /><meshBasicMaterial color="#4f3a29" /></mesh>)}</>}
+      {k === "trade" && <>{[-5, 0, 5].map((x) => <group key={x} position={[x, 0, -4]}><mesh position={[0, 1.5, 0]}><boxGeometry args={[3, 0.18, 2]} /><meshStandardMaterial color="#8a5e31" /></mesh><mesh position={[0, 2.5, 0]} rotation-z={Math.PI / 2}><planeGeometry args={[3.2, 2]} /><meshStandardMaterial color={x === 0 ? "#b64f3d" : "#c89a4c"} side={THREE.DoubleSide} /></mesh></group>)}</>}
+      {k === "widow" && <><Hut position={[-5, 0, -4]} damaged /><Hut position={[5, 0, -5]} damaged />{[-3, 0, 3].map((x) => <mesh key={x} position={[x, 0.24, 3]}><boxGeometry args={[1.4, 0.48, 1.4]} /><meshStandardMaterial color="#5a4734" /></mesh>)}</>}
+      {k === "temple" && <><mesh position={[0, 0.1, -2]}><boxGeometry args={[15, 0.2, 13]} /><meshStandardMaterial color="#667052" /></mesh>{[-6, 6].map((x) => <Column key={x} position={[x, 0, -6]} />)}{[-7, 7].map((x) => <Tree key={x} position={[x, 0, 3]} />)}</>}
+      {k === "calf" && <>{[-6, -3, 3, 6].map((x) => <mesh key={x} position={[x, 0.7, -4]} rotation-z={x * 0.02}><coneGeometry args={[0.34, 1.5, 5]} /><meshStandardMaterial color="#4c2230" /></mesh>)}<Tree position={[-7, 0, 3]} /><Tree position={[7, 0, 2]} /></>}
+      {k === "plough" && <>{[-6, -3, 0, 3, 6].map((x) => <mesh key={x} position={[x, 0.04, -2]} rotation-x={-Math.PI / 2}><planeGeometry args={[0.3, 15]} /><meshStandardMaterial color="#2f291f" /></mesh>)}<Hut position={[7, 0, -6]} /></>}
+      {k === "tiger" && <>{[-7, -5, 5, 7].map((x) => <Tree key={x} position={[x, 0, x % 2 ? -4 : 3]} />)}{[-4, -2, 0, 2, 4].map((x) => <mesh key={x} position={[x, 0.8, -5]}><coneGeometry args={[0.13, 1.6, 6]} /><meshStandardMaterial color="#526344" /></mesh>)}</>}
+      {k === "trough" && <><mesh position={[0, 0.04, -2]} rotation-x={-Math.PI / 2}><circleGeometry args={[7, 28]} /><meshStandardMaterial color="#3d5849" /></mesh>{[-7, 7].map((x) => <Tree key={x} position={[x, 0, -3]} />)}<mesh position={[0, 0.02, 3]} rotation-x={-Math.PI / 2}><circleGeometry args={[2.8, 24]} /><meshStandardMaterial color="#3a7894" emissive="#1d4d66" emissiveIntensity={0.7} /></mesh></>}
+      {k === "teaching" && <>{[-7, -4, 4, 7].map((x) => <Tree key={x} position={[x, 0, -4]} />)}<mesh position={[0, 0.08, -2]} rotation-x={-Math.PI / 2}><circleGeometry args={[6, 32]} /><meshStandardMaterial color="#40523e" /></mesh></>}
+      {k === "hunter" && <><Hut position={[6, 0, -5]} />{[-7, -4, 4].map((x) => <Tree key={x} position={[x, 0, -3]} />)}<mesh position={[-2, 0.25, 3]}><boxGeometry args={[4, 0.5, 1.5]} /><meshStandardMaterial color="#6e5035" /></mesh></>}
+      {k === "debate" && <><mesh position={[0, 0.12, -2]}><cylinderGeometry args={[7, 7, 0.24, 32]} /><meshStandardMaterial color="#4c4b45" /></mesh>{[-6, -3, 3, 6].map((x) => <mesh key={x} position={[x, 0.35, 3]}><boxGeometry args={[1.6, 0.7, 1]} /><meshStandardMaterial color="#63513b" /></mesh>)}</>}
+      {k === "palace" && <><mesh position={[0, 0.12, -2]}><boxGeometry args={[15, 0.24, 12]} /><meshStandardMaterial color="#683e5c" /></mesh>{[-6, -3, 3, 6].map((x) => <Column key={x} position={[x, 0, -6]} />)}<mesh position={[0, 1.8, 3]}><boxGeometry args={[5, 3.6, 1]} /><meshStandardMaterial color="#8c4d72" metalness={0.35} /></mesh></>}
+    </group>
+  );
+}
+
 function Trial({ stage, index, active }: { stage: TrialStage; index: number; active: boolean }) {
   const s = useGame();
   const moving = s.phase === "SETUP" && s.encounterSetup?.sceneId === stage.id;
@@ -104,5 +147,6 @@ function Trial({ stage, index, active }: { stage: TrialStage; index: number; act
 export function TrialScenes({ form }: { form: Form }) {
   const s = useGame();
   const stages = useMemo(() => TRIAL_STAGES[form], [form]);
-  return <group>{stages.map((stage, index) => <Trial key={stage.id} stage={stage} index={index} active={index === s.trialIndex} />)}</group>;
+  const activeStage = stages[s.trialIndex];
+  return <group>{activeStage && <TrialMap key={activeStage.id} stage={activeStage} />}{stages.map((stage, index) => <Trial key={stage.id} stage={stage} index={index} active={index === s.trialIndex} />)}</group>;
 }
