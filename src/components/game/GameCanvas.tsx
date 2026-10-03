@@ -308,18 +308,20 @@ function Player() {
 function Scene() {
   const s = useGame();
   const info = FORMS[s.form];
-  const sky = s.cataclysm ? "#1a0000" : s.phase === "MOKSHA" ? "#c9a24a" : info.fog;
+  const activeStage = TRIAL_STAGES[s.form][s.trialIndex];
+  const atmosphere = activeStage?.atmosphere;
+  const sky = s.cataclysm ? "#1a0000" : s.phase === "MOKSHA" ? "#c9a24a" : (atmosphere?.sky ?? info.fog);
   const World = useMemo(() => ({ prince: PrinceWorld, merchant: MerchantWorld, animal: AnimalWorld, sage: SageWorld })[s.form], [s.form]);
   return (
     <>
       <color attach="background" args={[sky]} />
-      <fog attach="fog" args={[sky, 18, 70]} />
-      <ambientLight intensity={s.cataclysm ? 0.15 : info.ambient} color={s.cataclysm ? "#ff5555" : "#d8ccff"} />
+      <fog attach="fog" args={[sky, atmosphere?.fogNear ?? 18, atmosphere?.fogFar ?? 70]} />
+      <ambientLight intensity={s.cataclysm ? 0.15 : (atmosphere?.ambient ?? info.ambient)} color={s.cataclysm ? "#ff5555" : "#d8ccff"} />
       <directionalLight position={[14, 22, 10]} intensity={s.cataclysm ? 0.4 : 1.1} castShadow />
       <Stars radius={90} depth={40} count={1200} factor={3} fade speed={0.4} />
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
         <planeGeometry args={[GROUND, GROUND]} />
-        <meshStandardMaterial color={info.ground} roughness={0.9} />
+        <meshStandardMaterial color={atmosphere?.ground ?? info.ground} roughness={0.9} />
       </mesh>
       <World key={s.levelKey} />
       <TrialScenes form={s.form} />

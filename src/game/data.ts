@@ -144,6 +144,7 @@ export type TrialStage = {
   position: V3;
   label: string;
   kind: "battle" | "mercy" | "city" | "court" | "famine" | "trade" | "widow" | "temple" | "calf" | "plough" | "tiger" | "trough" | "teaching" | "hunter" | "debate" | "palace";
+  atmosphere: { sky: string; ground: string; ambient: number; fogNear: number; fogFar: number };
 };
 
 export const FORM_TREE: Record<Form, string> = { prince: "mentor", merchant: "elder", animal: "calf", sage: "disciple" };
@@ -151,28 +152,28 @@ export const FORM_TREE: Record<Form, string> = { prince: "mentor", merchant: "el
 /** The four physical encounters in each life, ordered along a walkable route. */
 export const TRIAL_STAGES: Record<Form, TrialStage[]> = {
   prince: [
-    { id: "prince-battle", tree: "mentor", node: "start", position: [0, 0, 5], label: "Face Drona", kind: "battle" },
-    { id: "prince-mercy", tree: "mentor", node: "s1", position: [11, 0, -3], label: "Approach the wounded soldier", kind: "mercy" },
-    { id: "prince-city", tree: "mentor", node: "s2", position: [0, 0, -17], label: "Enter the conquered city", kind: "city" },
-    { id: "prince-court", tree: "mentor", node: "s3", position: [-13, 0, -6], label: "Hear the Queen", kind: "court" },
+    { id: "prince-battle", tree: "mentor", node: "start", position: [0, 0, 5], label: "Face Drona", kind: "battle", atmosphere: { sky: "#443248", ground: "#74583d", ambient: 0.62, fogNear: 20, fogFar: 74 } },
+    { id: "prince-mercy", tree: "mentor", node: "s1", position: [11, 0, -3], label: "Approach the wounded soldier", kind: "mercy", atmosphere: { sky: "#302b46", ground: "#54473e", ambient: 0.42, fogNear: 12, fogFar: 52 } },
+    { id: "prince-city", tree: "mentor", node: "s2", position: [0, 0, -17], label: "Enter the conquered city", kind: "city", atmosphere: { sky: "#5c3030", ground: "#59433a", ambient: 0.46, fogNear: 14, fogFar: 58 } },
+    { id: "prince-court", tree: "mentor", node: "s3", position: [-13, 0, -6], label: "Hear the Queen", kind: "court", atmosphere: { sky: "#35284d", ground: "#574438", ambient: 0.68, fogNear: 22, fogFar: 76 } },
   ],
   merchant: [
-    { id: "merchant-famine", tree: "elder", node: "start", position: [0, 0, 5], label: "Hear the village elder", kind: "famine" },
-    { id: "merchant-trade", tree: "elder", node: "s1", position: [-11, 0, -8], label: "Meet the rival trader", kind: "trade" },
-    { id: "merchant-widow", tree: "elder", node: "s2", position: [10, 0, -8], label: "Meet the widow", kind: "widow" },
-    { id: "merchant-temple", tree: "elder", node: "s3", position: [0, 0, -21], label: "Attend the temple dedication", kind: "temple" },
+    { id: "merchant-famine", tree: "elder", node: "start", position: [0, 0, 5], label: "Hear the village elder", kind: "famine", atmosphere: { sky: "#725039", ground: "#8a693c", ambient: 0.64, fogNear: 18, fogFar: 66 } },
+    { id: "merchant-trade", tree: "elder", node: "s1", position: [-11, 0, -8], label: "Meet the rival trader", kind: "trade", atmosphere: { sky: "#5a4935", ground: "#765d39", ambient: 0.58, fogNear: 16, fogFar: 60 } },
+    { id: "merchant-widow", tree: "elder", node: "s2", position: [10, 0, -8], label: "Meet the widow", kind: "widow", atmosphere: { sky: "#494238", ground: "#63533f", ambient: 0.46, fogNear: 12, fogFar: 52 } },
+    { id: "merchant-temple", tree: "elder", node: "s3", position: [0, 0, -21], label: "Attend the temple dedication", kind: "temple", atmosphere: { sky: "#506071", ground: "#526348", ambient: 0.74, fogNear: 24, fogFar: 82 } },
   ],
   animal: [
-    { id: "animal-calf", tree: "calf", node: "start", position: [10, 0, 7], label: "Approach the trapped calf", kind: "calf" },
-    { id: "animal-plough", tree: "calf", node: "s1", position: [-11, 0, 0], label: "Approach the farmer", kind: "plough" },
-    { id: "animal-tiger", tree: "calf", node: "s2", position: [10, 0, -13], label: "Protect the herd", kind: "tiger" },
-    { id: "animal-trough", tree: "calf", node: "s3", position: [0, 0, -24], label: "Approach the trough", kind: "trough" },
+    { id: "animal-calf", tree: "calf", node: "start", position: [10, 0, 7], label: "Approach the trapped calf", kind: "calf", atmosphere: { sky: "#344536", ground: "#3e4a30", ambient: 0.52, fogNear: 14, fogFar: 56 } },
+    { id: "animal-plough", tree: "calf", node: "s1", position: [-11, 0, 0], label: "Approach the farmer", kind: "plough", atmosphere: { sky: "#5a513b", ground: "#655838", ambient: 0.66, fogNear: 20, fogFar: 70 } },
+    { id: "animal-tiger", tree: "calf", node: "s2", position: [10, 0, -13], label: "Protect the herd", kind: "tiger", atmosphere: { sky: "#182f2a", ground: "#273b2b", ambient: 0.34, fogNear: 9, fogFar: 42 } },
+    { id: "animal-trough", tree: "calf", node: "s3", position: [0, 0, -24], label: "Approach the trough", kind: "trough", atmosphere: { sky: "#365b63", ground: "#425640", ambient: 0.72, fogNear: 20, fogFar: 74 } },
   ],
   sage: [
-    { id: "sage-teaching", tree: "disciple", node: "start", position: [9, 0, 8], label: "Teach your disciple", kind: "teaching" },
-    { id: "sage-hunter", tree: "disciple", node: "s1", position: [-10, 0, 4], label: "Approach the sick hunter", kind: "hunter" },
-    { id: "sage-debate", tree: "disciple", node: "s2", position: [-8, 0, -12], label: "Meet the rival sage", kind: "debate" },
-    { id: "sage-palace", tree: "disciple", node: "s3", position: [8, 0, -22], label: "Receive the royal messenger", kind: "palace" },
+    { id: "sage-teaching", tree: "disciple", node: "start", position: [9, 0, 8], label: "Teach your disciple", kind: "teaching", atmosphere: { sky: "#213d43", ground: "#294331", ambient: 0.62, fogNear: 18, fogFar: 68 } },
+    { id: "sage-hunter", tree: "disciple", node: "s1", position: [-10, 0, 4], label: "Approach the sick hunter", kind: "hunter", atmosphere: { sky: "#24373c", ground: "#34443a", ambient: 0.48, fogNear: 12, fogFar: 52 } },
+    { id: "sage-debate", tree: "disciple", node: "s2", position: [-8, 0, -12], label: "Meet the rival sage", kind: "debate", atmosphere: { sky: "#302c4d", ground: "#30383b", ambient: 0.56, fogNear: 16, fogFar: 62 } },
+    { id: "sage-palace", tree: "disciple", node: "s3", position: [8, 0, -22], label: "Receive the royal messenger", kind: "palace", atmosphere: { sky: "#513b58", ground: "#3c483b", ambient: 0.7, fogNear: 22, fogFar: 78 } },
   ],
 };
 
