@@ -1,9 +1,10 @@
 /** @jsxRuntime classic */
 import { useFrame } from "@react-three/fiber";
-import React, { useMemo, useRef } from "react";
+import React, { useRef } from "react";
 import "@/game/r3f-devtag-patch";
 import * as THREE from "three";
-import { TRIAL_STAGES, type Form, type Seed, type TrialStage, type V3 } from "@/game/data";
+import type { Seed, V3 } from "@/game/data";
+import type { Scenario } from "@/game/scenarios";
 import { useGame } from "@/game/store";
 
 const outcomeColor: Record<Seed, string> = { nishkama: "#ffe8a0", sakam: "#dc9cff", adharma: "#a31635" };
@@ -52,7 +53,7 @@ function Column({ position }: { position: V3 }) {
   return <group position={position}><mesh position={[0, 1.7, 0]} castShadow><cylinderGeometry args={[0.32, 0.42, 3.4, 10]} /><meshStandardMaterial color="#b9a57c" /></mesh><mesh position={[0, 3.45, 0]}><boxGeometry args={[0.9, 0.25, 0.9]} /><meshStandardMaterial color="#d1bd8f" /></mesh></group>;
 }
 
-function TrialMap({ stage }: { stage: TrialStage }) {
+function TrialMap({ stage }: { stage: Scenario }) {
   const ref = useRef<THREE.Group>(null);
   useFrame((_, rawDelta) => {
     if (!ref.current) return;
@@ -79,11 +80,19 @@ function TrialMap({ stage }: { stage: TrialStage }) {
       {k === "hunter" && <><Hut position={[6, 0, -5]} />{[-7, -4, 4].map((x) => <Tree key={x} position={[x, 0, -3]} />)}<mesh position={[-2, 0.25, 3]}><boxGeometry args={[4, 0.5, 1.5]} /><meshStandardMaterial color="#6e5035" /></mesh></>}
       {k === "debate" && <><mesh position={[0, 0.12, -2]}><cylinderGeometry args={[7, 7, 0.24, 32]} /><meshStandardMaterial color="#4c4b45" /></mesh>{[-6, -3, 3, 6].map((x) => <mesh key={x} position={[x, 0.35, 3]}><boxGeometry args={[1.6, 0.7, 1]} /><meshStandardMaterial color="#63513b" /></mesh>)}</>}
       {k === "palace" && <><mesh position={[0, 0.12, -2]}><boxGeometry args={[15, 0.24, 12]} /><meshStandardMaterial color="#683e5c" /></mesh>{[-6, -3, 3, 6].map((x) => <Column key={x} position={[x, 0, -6]} />)}<mesh position={[0, 1.8, 3]}><boxGeometry args={[5, 3.6, 1]} /><meshStandardMaterial color="#8c4d72" metalness={0.35} /></mesh></>}
+      {k === "river" && <><mesh position={[0, 0.03, -2]} rotation-x={-Math.PI / 2}><planeGeometry args={[9, 16]} /><meshStandardMaterial color="#3d6f86" emissive="#18384a" emissiveIntensity={0.7} /></mesh><Tree position={[-7, 0, -6]} /><Tree position={[7, 0, -6]} /><Tree position={[-6, 0, 2]} /></>}
+      {k === "ruins" && <><Hut position={[-6, 0, -4]} damaged /><Hut position={[6, 0, -6]} damaged /><Column position={[0, 0, -8]} />{[-3, 4].map((x) => <Tree key={x} position={[x, 0, 2]} bare />)}</>}
+      {k === "shrine" && <><mesh position={[0, 0.3, -3]}><cylinderGeometry args={[3.2, 3.6, 0.6, 24]} /><meshStandardMaterial color="#a38f66" /></mesh>{[-6, 6].map((x) => <Column key={x} position={[x, 0, -7]} />)}<mesh position={[0, 2.4, -3]}><octahedronGeometry args={[0.7, 0]} /><meshStandardMaterial color="#fff2c0" emissive="#ffd060" emissiveIntensity={2} /></mesh></>}
+      {k === "storm" && <><mesh position={[0, 0.04, -2]} rotation-x={-Math.PI / 2}><planeGeometry args={[16, 16]} /><meshStandardMaterial color="#283038" roughness={1} metalness={0.2} /></mesh>{[-6, -2, 4].map((x) => <Hut key={x} position={[x, 0, -7]} damaged />)}</>}
+      {k === "bazaar" && <>{[-6, -2, 2, 6].map((x) => <group key={x} position={[x, 0, -4]}><mesh position={[0, 1.4, 0]}><boxGeometry args={[2.4, 0.16, 1.8]} /><meshStandardMaterial color="#8a5e31" /></mesh><mesh position={[0, 2.3, 0]} rotation-z={Math.PI / 2}><planeGeometry args={[2.6, 1.6]} /><meshStandardMaterial color={x % 4 === 0 ? "#c05a46" : "#cf9e4c"} side={THREE.DoubleSide} /></mesh></group>)}</>}
+      {k === "cave" && <><mesh position={[0, 3, -8]}><boxGeometry args={[18, 8, 2]} /><meshStandardMaterial color="#1c1a1e" roughness={1} /></mesh>{[-6, -2, 2, 6].map((x) => <mesh key={x} position={[x, 5.4, -7]} rotation-x={Math.PI}><coneGeometry args={[0.4, 1.8, 6]} /><meshStandardMaterial color="#2c282e" /></mesh>)}</>}
+      {k === "festival" && <>{[-6, -3, 3, 6].map((x) => <Column key={x} position={[x, 0, -6]} />)}{[-4.5, 0, 4.5].map((x) => <mesh key={x} position={[x, 3.6, -6]} rotation-x={Math.PI / 2}><planeGeometry args={[2.6, 1]} /><meshStandardMaterial color="#e08a3c" emissive="#ff9a3c" emissiveIntensity={1.4} side={THREE.DoubleSide} /></mesh>)}</>}
+      {k === "graveyard" && <>{[-5, -2, 2, 5].map((x) => <mesh key={x} position={[x, 0.55, -5]} rotation-y={x * 0.04}><boxGeometry args={[0.8, 1.1, 0.3]} /><meshStandardMaterial color="#5a564f" roughness={1} /></mesh>)}<Tree position={[-7, 0, 2]} bare /><Tree position={[7, 0, 1]} bare /></>}
     </group>
   );
 }
 
-function Trial({ stage, index, active }: { stage: TrialStage; index: number; active: boolean }) {
+function Trial({ stage, index, active }: { stage: Scenario; index: number; active: boolean }) {
   const s = useGame();
   const moving = s.phase === "SETUP" && s.encounterSetup?.sceneId === stage.id;
   const performance = s.phase === "PERFORMANCE" && s.performance?.sceneId === stage.id ? s.performance : null;
@@ -112,15 +121,29 @@ function Trial({ stage, index, active }: { stage: TrialStage; index: number; act
   });
 
   const kind = stage.kind;
-  const isPersonScene = !["calf", "plough", "tiger", "trough"].includes(kind);
+  const isPersonScene = stage.actor === "person";
   const actorColor = seed ? outcomeColor[seed] : kind === "hunter" ? "#78a8a0" : kind === "tiger" ? "#c86d2d" : "#c5875c";
   return (
     <group ref={root} position={stage.position}>
       <Marker active={active && s.phase === "PLAY"} />
       <mesh position={[0, 0.03, 0]} rotation-x={-Math.PI / 2} receiveShadow><circleGeometry args={[3.4, 24]} /><meshStandardMaterial color={active ? "#665230" : "#40382e"} emissive={active ? "#7b5b16" : "#000000"} emissiveIntensity={0.4} /></mesh>
       <group ref={actor}>
-        {isPersonScene ? <Person color={actorColor} kneel={["mercy", "widow", "hunter", "court"].includes(kind)} /> : <Ox color={actorColor} small={kind === "calf"} />}
+        {isPersonScene ? <Person color={actorColor} kneel={["mercy", "widow", "hunter", "court", "graveyard", "shrine"].includes(kind)} /> : <Ox color={actorColor} small={kind === "calf"} />}
       </group>
+      {performance && (
+        <group position={[0, 2.95, 0]}>
+          {performance.beats.map((_, i) => (
+            <mesh key={i} position={[(i - 1) * 0.5, 0, 0]}>
+              <sphereGeometry args={[0.14, 10, 10]} />
+              <meshStandardMaterial
+                color={performance.hits[i] ? "#ffe9a0" : "#4a3c66"}
+                emissive={performance.hits[i] ? "#ffcf5a" : "#2a2040"}
+                emissiveIntensity={performance.hits[i] ? 3 : 0.8}
+              />
+            </mesh>
+          ))}
+        </group>
+      )}
       <group ref={prop}>
         {kind === "battle" && <><mesh position={[1.4, 1.1, 0]}><cylinderGeometry args={[0.09, 0.09, 2.8, 8]} /><meshStandardMaterial color="#f5dfa0" emissive="#fff1af" emissiveIntensity={moving ? 3 : 0.4} /></mesh><mesh position={[-1.5, 0.5, 0]}><boxGeometry args={[2, 0.5, 2.8]} /><meshStandardMaterial color="#795124" /></mesh></>}
         {kind === "mercy" && <mesh position={[1.2, 0.35, 0]} rotation-z={1.2}><cylinderGeometry args={[0.28, 0.36, 1.2, 10]} /><meshStandardMaterial color={seed === "nishkama" ? "#65b9dc" : "#725a45"} emissive={seed === "nishkama" ? "#297fae" : "#000000"} emissiveIntensity={1.5} /></mesh>}
@@ -138,15 +161,22 @@ function Trial({ stage, index, active }: { stage: TrialStage; index: number; act
         {kind === "hunter" && <><mesh position={[0, 0.12, 1]} rotation-x={-Math.PI / 2}><ringGeometry args={[1, 1.4, 24]} /><meshBasicMaterial color={seed === "adharma" ? "#52101c" : "#82dbcf"} transparent opacity={0.7} /></mesh></>}
         {kind === "debate" && <mesh position={[0, 1.3, 1]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.08, 0.3, 4, 8]} /><meshStandardMaterial color={seed === "adharma" ? "#342347" : "#ffd477"} emissive={seed === "adharma" ? "#000000" : "#ffd477"} emissiveIntensity={2} /></mesh>}
         {kind === "palace" && <><mesh position={[0, 2.3, 0]} rotation-y={Math.PI / 4}><octahedronGeometry args={[0.55, 0]} /><meshStandardMaterial color={seed === "nishkama" ? "#f5e1ad" : "#d76bd4"} emissive={seed === "adharma" ? "#a41353" : "#ffd46a"} emissiveIntensity={3} /></mesh><mesh position={[1.7, 0.6, 0]}><boxGeometry args={[2.2, 1.2, 1.2]} /><meshStandardMaterial color="#8f3f69" metalness={0.5} /></mesh></>}
+        {kind === "river" && <><mesh position={[1.3, 0.25, 0]} rotation-x={-0.1}><boxGeometry args={[1.8, 0.3, 0.7]} /><meshStandardMaterial color="#5a4328" /></mesh><mesh position={[0, 0.05, 0.4]} rotation-x={-Math.PI / 2}><ringGeometry args={[0.6, 1, 20]} /><meshBasicMaterial color="#aee0ff" transparent opacity={0.6} /></mesh></>}
+        {kind === "ruins" && <><mesh position={[1.4, 0.4, 0]} rotation-z={0.5}><boxGeometry args={[1.6, 0.3, 0.3]} /><meshStandardMaterial color={seed === "adharma" ? "#7d1515" : "#6c5a44"} /></mesh></>}
+        {kind === "shrine" && <mesh position={[1.1, 0.5, 0]}><cylinderGeometry args={[0.4, 0.5, 0.5, 14]} /><meshStandardMaterial color={seed === "nishkama" ? "#ffe9a0" : "#9a8a66"} emissive={seed === "nishkama" ? "#ffcf5a" : "#000000"} emissiveIntensity={1.6} /></mesh>}
+        {kind === "storm" && <mesh position={[0, 0.1, 1]} rotation-x={-Math.PI / 2}><circleGeometry args={[1.6, 20]} /><meshStandardMaterial color="#6fa0c0" emissive="#2a5a7a" emissiveIntensity={1.1} transparent opacity={0.75} /></mesh>}
+        {kind === "bazaar" && <mesh position={[1.2, 0.6, 0]} rotation-y={0.4}><octahedronGeometry args={[0.35, 0]} /><meshStandardMaterial color={seed === "adharma" ? "#86817b" : "#d5a23d"} emissive={seed === "sakam" ? "#ffcf5a" : "#000000"} emissiveIntensity={1.2} /></mesh>}
+        {kind === "cave" && <mesh position={[1, 1, -0.5]}><sphereGeometry args={[0.25, 10, 10]} /><meshStandardMaterial color="#ffcf8a" emissive="#ffb060" emissiveIntensity={seed === "adharma" ? 0.3 : 2.4} /></mesh>}
+        {kind === "festival" && <>{[-1.4, 0, 1.4].map((x) => <mesh key={x} position={[x, 2.4, 0]} rotation-x={Math.PI / 2}><planeGeometry args={[0.7, 1]} /><meshStandardMaterial color={seed === "adharma" ? "#5a2a2a" : "#ffb060"} emissive={seed === "sakam" ? "#ff9a3c" : "#000000"} emissiveIntensity={1.4} side={THREE.DoubleSide} /></mesh>)}</>}
+        {kind === "graveyard" && <mesh position={[1.2, 0.4, 0]}><coneGeometry args={[0.1, 0.5, 6]} /><meshStandardMaterial color="#ff7a3c" emissive={seed === "adharma" ? "#000000" : "#ff9a3c"} emissiveIntensity={2} /></mesh>}
       </group>
       {(moving || performance) && <pointLight position={[0, 2.4, 0]} color={seed ? outcomeColor[seed] : "#ffe5a0"} intensity={performance ? 12 : 6} distance={10} />}
     </group>
   );
 }
 
-export function TrialScenes({ form }: { form: Form }) {
+export function TrialScenes({ stages }: { stages: Scenario[] }) {
   const s = useGame();
-  const stages = useMemo(() => TRIAL_STAGES[form], [form]);
   const activeStage = stages[s.trialIndex];
   return <group>{activeStage && <TrialMap key={activeStage.id} stage={activeStage} />}{stages.map((stage, index) => <Trial key={stage.id} stage={stage} index={index} active={index === s.trialIndex} />)}</group>;
 }

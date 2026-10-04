@@ -1,8 +1,13 @@
 import { useSyncExternalStore } from "react";
-import { FORM_TREE, FORMS, MOKSHA_THRESHOLD, STORY_TREES, TRIAL_STAGES, type Effect, type Form, type Node, type Seed } from "./data";
+import { FORMS, MOKSHA_THRESHOLD, type Effect, type Form, type Node, type Seed } from "./data";
+import { dispositionOf, pickStageScenarios, STORY_TREES, type Disposition, type Scenario } from "./scenarios";
 import { sfx, setMuted } from "./audio";
 
 export type Phase = "INTRO" | "PLAY" | "SETUP" | "DIALOGUE" | "PERFORMANCE" | "AUDIT" | "MOKSHA";
+
+/** Beat offsets (ms from performance start) the player can hit by pressing Act in time. */
+const QTE_BEATS = [1000, 2150, 3300];
+const QTE_WINDOW = 350;
 
 export type Atman = {
   jnana: number;
@@ -16,7 +21,18 @@ export type Atman = {
 
 export type Seeds = Record<Seed, number>;
 export type Audit = { reason: string; form: Form; seeds: Seeds; next: Form; endsAt: number };
-export type Performance = { sceneId: string; seed: Seed; caption: string; startedAt: number; endsAt: number; nextNode: string | null; completesLife: boolean };
+export type Performance = {
+  sceneId: string;
+  seed: Seed;
+  caption: string;
+  startedAt: number;
+  endsAt: number;
+  nextNode: string | null;
+  completesLife: boolean;
+  /** rhythm QTE played out during the deed: ms-offsets of each beat and whether it was hit */
+  beats: number[];
+  hits: boolean[];
+};
 export type EncounterSetup = { treeId: string; nodeId: string; sceneId: string; endsAt: number };
 
 export type GameState = {
@@ -55,11 +71,15 @@ export type GameState = {
   audit: Audit | null;
   performance: Performance | null;
   encounterSetup: EncounterSetup | null;
+  // the four karma-shaped encounters chosen for this life
+  stages: Scenario[];
+  disposition: Disposition;
 };
 
 const zeroSeeds = (): Seeds => ({ nishkama: 0, sakam: 0, adharma: 0 });
 
-function lifeState(form: Form): Partial<GameState> {
+function lifeState(form: Form, atman: Atman): Partial<GameState> {
+  const disposition = dispositionOf(atman);
   return {
     form,
     age: 0,
@@ -76,15 +96,18 @@ function lifeState(form: Form): Partial<GameState> {
     mirrors: [0, 0, 0],
     lightAligned: false,
     spiritFill: 0,
+    stages: pickStageScenarios(form, disposition),
+    disposition,
   };
 }
 
 function initial(): GameState {
+  const atman: Atman = { jnana: 0, vairagya: 0, sakamKarma: 0, nishkamaKarma: 0, adharmaKarma: 0, unseenBadKarma: 0 };
   return {
-    ...lifeState("prince"),
+    ...lifeState("prince", atman),
     phase: "INTRO",
     life: 1,
-    atman: { jnana: 0, vairagya: 0, sakamKarma: 0, nishkamaKarma: 0, adharmaKarma: 0, unseenBadKarma: 0 },
+    atman,
     treeId: null,
     nodeId: null,
     journal: [],
@@ -176,7 +199,7 @@ function applyEffect(e: Effect | undefined) {
 export function openDialogue(treeId: string, nodeId = "start") {
   if (!STORY_TREES[treeId]) return;
   sfx.talk();
-  const stage = TRIAL_STAGES[state.form].find((item) => item.tree === treeId && item.node === nodeId);
+  const stage = state.stages[state.trialIndex]?.id === treeId ? state.stages[state.trialIndex] : undefined;
   set({
     treeId,
     nodeId,
@@ -194,9 +217,11 @@ export function chooseOption(index: number) {
   if (choice.tag === "nishkama") sfx.chant();
   if (state.form === "prince" && choice.effect?.seed) sfx.drums();
   const wasSil = state.treeId === "silhouette";
-  const stage = TRIAL_STAGES[state.form][state.trialIndex];
-  const completesLife = Boolean(choice.effect?.complete);
-  const effect = choice.effect ? { ...choice.effect, complete: false } : undefined;
+  const stage = state.stages[state.trialIndex];
+  // only the Prince and the Sage close out their life at the story's fourth trial —
+  // the Merchant and the Ox end theirs through their own objectives (silos / the pool).
+  const completesLife = (state.form === "prince" || state.form === "sage") && state.trialIndex === 3;
+  const effect = choice.effect;
   applyEffect(effect);
   if (wasSil) {
     return set({ treeId: null, nodeId: null, phase: "PLAY", silhouetteMet: true, doomAt: Date.now() + 300_000 });
@@ -205,20 +230,59 @@ export function chooseOption(index: number) {
   set({
     phase: "PERFORMANCE",
     performance: {
-      sceneId: stage?.id ?? `${FORM_TREE[state.form]}-${state.trialIndex}`,
+      sceneId: stage?.id ?? "deed",
       seed: choice.tag ?? "sakam",
       caption: choice.effect?.journal ?? choice.label,
       startedAt: now,
       endsAt: now + 4200,
       nextNode: choice.next ?? null,
       completesLife,
+      beats: QTE_BEATS,
+      hits: QTE_BEATS.map(() => false),
     },
   });
+}
+
+/** Press Act in time with a beat during the performance to steady the deed. */
+export function registerBeat() {
+  const perf = state.performance;
+  if (!perf || state.phase !== "PERFORMANCE") return;
+  const elapsed = Date.now() - perf.startedAt;
+  let best = -1;
+  let bestDist = QTE_WINDOW;
+  perf.beats.forEach((b, i) => {
+    if (perf.hits[i]) return;
+    const dist = Math.abs(elapsed - b);
+    if (dist <= bestDist) {
+      best = i;
+      bestDist = dist;
+    }
+  });
+  if (best === -1) return;
+  const hits = perf.hits.map((h, i) => (i === best ? true : h));
+  sfx.karma();
+  set({ performance: { ...perf, hits } });
+}
+
+/** Reward for steadying the deed in rhythm: focus mutes the edge of whatever the choice already planted. */
+function applyQteBonus(performance: Performance) {
+  const hitCount = performance.hits.filter(Boolean).length;
+  if (hitCount === 0) return;
+  const a = { ...state.atman };
+  const patch: Partial<GameState> = {};
+  if (performance.seed === "adharma") {
+    a.unseenBadKarma = Math.max(0, a.unseenBadKarma - hitCount * 0.5);
+  } else {
+    a.vairagya = clamp(a.vairagya + hitCount * 1.5);
+    if (performance.seed === "sakam") patch.merit = state.merit + hitCount * 4;
+  }
+  set({ ...patch, atman: a });
 }
 
 function finishPerformance() {
   const performance = state.performance;
   if (!performance) return;
+  applyQteBonus(performance);
   if (performance.completesLife) {
     set({ performance: null, treeId: null, nodeId: null, phase: "PLAY" });
     completeLife("Your four trials in this life have played out.");
@@ -346,7 +410,7 @@ function rebirth() {
   sfx.chord();
   if (au.next === "prince") setTimeout(() => sfx.drums(), 600);
   set({
-    ...lifeState(au.next),
+    ...lifeState(au.next, state.atman),
     audit: null,
     phase: "PLAY",
     life: state.life + 1,

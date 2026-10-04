@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { FORMS, GITA_EXCERPTS, GLOSSARY, MOKSHA_THRESHOLD } from "@/game/data";
+import { DISPOSITION_TEXT, dispositionOf } from "@/game/scenarios";
 import { begin, chooseOption, currentNode, mokshaReady, restartWheel, toggleJournal, toggleMute, useGame } from "@/game/store";
 import { useNear } from "@/game/proximity";
 import { clearTouch, setTouch } from "@/game/input";
@@ -83,6 +84,7 @@ export function HUD() {
           <span>Health {"♥".repeat(Math.max(0, s.health))}</span>
           <span>Merit {Math.round(s.merit)}</span>
         </div>
+        <p className="mt-1 text-[10px] uppercase tracking-wider opacity-70">Soul: {DISPOSITION_TEXT[dispositionOf(s.atman)].title}</p>
       </div>
 
       <div className={`absolute right-3 top-3 max-w-[240px] ${panel} px-4 py-3`}>
@@ -128,6 +130,7 @@ export function IntroOverlay() {
           You cannot choose your body. Your deeds choose it for you. Live each life, act, and let the wheel decide what you become next.
         </p>
         <p className="mt-2 text-xs opacity-70">WASD / arrows to move · Space to jump · E to act · J for the journal</p>
+        <p className="mt-1 text-xs opacity-70">While a deed plays out, press E in rhythm to steady it — a focused mind softens even a hard fate.</p>
         <div className="mt-5">
           <Btn onClick={begin}>Begin the first life</Btn>
         </div>
@@ -167,11 +170,15 @@ export function PerformanceOverlay() {
   const s = useGame();
   if (s.phase !== "PERFORMANCE" || !s.performance) return null;
   const path = s.performance.seed === "nishkama" ? "SELFLESS ACTION" : s.performance.seed === "sakam" ? "ACTION WITH DESIRE" : "ADHARMA";
+  const hits = s.performance.hits.filter(Boolean).length;
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-32 z-30 flex justify-center px-4">
       <div className={`animate-fade-in max-w-lg ${panel} px-5 py-3 text-center`}>
         <p className={`text-[10px] font-semibold uppercase tracking-widest ${gold}`}>{path} · The deed unfolds</p>
         <p className="mt-1 text-sm leading-relaxed">{s.performance.caption}</p>
+        <p className="mt-2 text-[11px] uppercase tracking-widest opacity-75">
+          Press <span className={gold}>E</span> in time with the deed · {hits}/{s.performance.beats.length} steady
+        </p>
       </div>
     </div>
   );
@@ -189,6 +196,10 @@ export function JournalOverlay() {
         </div>
         <p className="mt-2 text-xs opacity-75">
           Moksha needs Jnana ≥ {MOKSHA_THRESHOLD.jnana}, Vairagya ≥ {MOKSHA_THRESHOLD.vairagya} and no unresolved adharma.
+        </p>
+        <h3 className={`mt-4 text-xs uppercase tracking-widest ${gold}`}>Your soul</h3>
+        <p className="mt-1 text-sm">
+          <span className={gold}>{DISPOSITION_TEXT[dispositionOf(s.atman)].title}.</span> {DISPOSITION_TEXT[dispositionOf(s.atman)].echo}
         </p>
         <h3 className={`mt-4 text-xs uppercase tracking-widest ${gold}`}>Your lives</h3>
         {s.journal.length === 0 ? <p className="mt-1 text-sm opacity-70">No deeds recorded yet.</p> : s.journal.map((j, i) => <p key={i} className="mt-1 text-sm">{j}</p>)}

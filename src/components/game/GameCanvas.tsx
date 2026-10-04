@@ -4,7 +4,8 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars } from "@react-three/drei";
 import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { ANIMAL, FORMS, GROUND, MERCHANT, PRINCE, SAGE, SIL_POS, START, TRIAL_STAGES, type V3 } from "@/game/data";
+import { ANIMAL, FORMS, GROUND, MERCHANT, PRINCE, SAGE, SIL_POS, START, type V3 } from "@/game/data";
+import { burdenOf } from "@/game/scenarios";
 import {
   getState,
   hurt,
@@ -12,6 +13,7 @@ import {
   openDialogue,
   openSilo,
   reachPool,
+  registerBeat,
   rotateMirror,
   transferMerit,
   useGame,
@@ -200,8 +202,8 @@ function targets(): Target[] {
   const talk = (id: string, pos: V3, label: string) => {
     if (!s.talked[id]) t.push({ near: { kind: "npc", id, label }, pos: v3(pos), radius: 3.5, act: () => openDialogue(id) });
   };
-  const stage = TRIAL_STAGES[s.form][s.trialIndex];
-  if (stage && !s.lifeEndAt) t.push({ near: { kind: "trial", id: stage.id, label: stage.label }, pos: v3(stage.position), radius: 4, act: () => openDialogue(stage.tree, stage.node) });
+  const stage = s.stages[s.trialIndex];
+  if (stage && !s.lifeEndAt) t.push({ near: { kind: "trial", id: stage.id, label: stage.label }, pos: v3(stage.position), radius: 4, act: () => openDialogue(stage.id) });
   if (s.form === "sage" && mokshaReady(s))
     t.push({ near: { kind: "spirit", id: "spirit", label: "Hold E: give all merit" }, pos: v3(SAGE.spirit), radius: 4.5, act: () => transferMerit(1.5), hold: true });
   if (s.silhouetteVisible && !s.silhouetteMet)
@@ -284,6 +286,7 @@ function Player() {
     const pressed = inp.interact && !prevE.current;
     prevE.current = inp.interact;
     if (canMove && best && (best.hold ? inp.interact : pressed)) best.act();
+    if (st.phase === "PERFORMANCE" && pressed) registerBeat();
     // camera
     const target = p.position.clone().add(new THREE.Vector3(0, 9, 14));
     camera.position.lerp(target, 1 - Math.exp(-4 * d));
@@ -308,23 +311,31 @@ function Player() {
 function Scene() {
   const s = useGame();
   const info = FORMS[s.form];
-  const activeStage = TRIAL_STAGES[s.form][s.trialIndex];
+  const activeStage = s.stages[s.trialIndex];
   const atmosphere = activeStage?.atmosphere;
-  const sky = s.cataclysm ? "#1a0000" : s.phase === "MOKSHA" ? "#c9a24a" : (atmosphere?.sky ?? info.fog);
+  const settled = s.cataclysm || s.phase === "MOKSHA";
+  // the burden of praise-seeking and unpaid adharma ashens the whole sky as it piles up across lives
+  const burden = settled ? 0 : burdenOf(s.atman);
+  const baseSky = s.cataclysm ? "#1a0000" : s.phase === "MOKSHA" ? "#c9a24a" : (atmosphere?.sky ?? info.fog);
+  const baseGround = atmosphere?.ground ?? info.ground;
+  const sky = useMemo(() => new THREE.Color(baseSky).lerp(new THREE.Color("#55524c"), burden * 0.55), [baseSky, burden]);
+  const ground = useMemo(() => new THREE.Color(baseGround).lerp(new THREE.Color("#3a3832"), burden * 0.4), [baseGround, burden]);
+  const fogFar = (atmosphere?.fogFar ?? 70) * (1 - burden * 0.3);
+  const ambient = (s.cataclysm ? 0.15 : (atmosphere?.ambient ?? info.ambient)) * (1 - burden * 0.25);
   const World = useMemo(() => ({ prince: PrinceWorld, merchant: MerchantWorld, animal: AnimalWorld, sage: SageWorld })[s.form], [s.form]);
   return (
     <>
       <color attach="background" args={[sky]} />
-      <fog attach="fog" args={[sky, atmosphere?.fogNear ?? 18, atmosphere?.fogFar ?? 70]} />
-      <ambientLight intensity={s.cataclysm ? 0.15 : (atmosphere?.ambient ?? info.ambient)} color={s.cataclysm ? "#ff5555" : "#d8ccff"} />
+      <fog attach="fog" args={[sky, atmosphere?.fogNear ?? 18, fogFar]} />
+      <ambientLight intensity={ambient} color={s.cataclysm ? "#ff5555" : "#d8ccff"} />
       <directionalLight position={[14, 22, 10]} intensity={s.cataclysm ? 0.4 : 1.1} castShadow />
       <Stars radius={90} depth={40} count={1200} factor={3} fade speed={0.4} />
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
         <planeGeometry args={[GROUND, GROUND]} />
-        <meshStandardMaterial color={atmosphere?.ground ?? info.ground} roughness={0.9} />
+        <meshStandardMaterial color={ground} roughness={0.9} />
       </mesh>
       <World key={s.levelKey} />
-      <TrialScenes form={s.form} />
+      <TrialScenes stages={s.stages} />
       {s.silhouetteVisible && !s.silhouetteMet && <Silhouette />}
       {s.cataclysm && <Meteor />}
       <Player />
