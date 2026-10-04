@@ -70,3 +70,44 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Cloud save (Supabase)
+
+The game plays entirely from local browser state out of the box. Point it at a
+[Supabase](https://supabase.com) project and the soul's journey — life count,
+karma, journal — is saved to the cloud and resumed automatically on return
+visits, including from a different device.
+
+1. Create a Supabase project.
+2. In **Authentication → Providers**, enable **Anonymous Sign-Ins**. The game
+   never shows a login screen — each browser gets a real, RLS-protected
+   identity behind the scenes the first time it saves.
+3. Run `supabase/migrations/0001_souls.sql` against your project (SQL editor,
+   or `supabase db push` with the CLI). It creates the `souls` table and the
+   row-level-security policies that keep every visitor's save private to them.
+4. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_ANON_KEY` (Project Settings → API).
+5. For a GitHub Pages deploy, add the same two values as repository secrets
+   instead (Settings → Secrets and variables → Actions) — the deploy workflow
+   reads them from there.
+
+Leave the two variables unset anywhere and `src/game/cloud.ts` quietly no-ops;
+nothing else changes.
+
+## Deploying
+
+### GitHub Pages
+
+The game's one route already runs client-side only (`ssr: false`), so it
+builds down to a static bundle that Pages can serve directly.
+
+1. Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+2. (Optional) add the two Supabase secrets above for cloud save.
+3. Push to `main` — `.github/workflows/deploy-pages.yml` builds the project
+   with the right base path for `<owner>.github.io/<repo>/` and publishes it.
+
+### Replit
+
+Import the repo into Replit as-is. `.replit` runs the Vite dev server bound to
+`0.0.0.0` on the port Replit expects. Add the two Supabase variables under the
+Secrets pane (padlock icon) if you want cloud save there too.

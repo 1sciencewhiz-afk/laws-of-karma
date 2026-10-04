@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { FORMS, GITA_EXCERPTS, GLOSSARY, MOKSHA_THRESHOLD } from "@/game/data";
 import { DISPOSITION_TEXT, dispositionOf } from "@/game/scenarios";
+import { cloudEnabled } from "@/game/cloud";
 import { begin, chooseOption, currentNode, mokshaReady, restartWheel, toggleJournal, toggleMute, useGame } from "@/game/store";
 import { useNear } from "@/game/proximity";
 import { clearTouch, setTouch } from "@/game/input";
@@ -131,6 +132,7 @@ export function IntroOverlay() {
         </p>
         <p className="mt-2 text-xs opacity-70">WASD / arrows to move · Space to jump · E to act · J for the journal</p>
         <p className="mt-1 text-xs opacity-70">While a deed plays out, press E in rhythm to steady it — a focused mind softens even a hard fate.</p>
+        <p className="mt-2 text-[11px] opacity-60">{cloudEnabled() ? "Cloud save connected — your soul's journey persists across visits." : "Playing locally — this soul's journey is remembered only on this device."}</p>
         <div className="mt-5">
           <Btn onClick={begin}>Begin the first life</Btn>
         </div>

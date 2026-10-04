@@ -1,0 +1,13 @@
+run = "npm install && npm run dev -- --host 0.0.0.0 --port 3000"
+entrypoint = "src/routes/index.tsx"
+
+[nix]
+channel = "stable-24_05"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+# Optional cloud save: add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the
+# Replit "Secrets" pane (padlock icon in the sidebar) — not here, so they stay
+# out of version control. Leave them unset to play entirely from local state.

@@ -419,6 +419,17 @@ function rebirth() {
   });
 }
 
+/** Hydrates a soul loaded from the cloud, resuming it in a fresh instance of its saved life/form. */
+export function resumeSoul(snap: { life: number; form: Form; atman: Atman; journal: string[] }) {
+  if (state.phase !== "INTRO") return;
+  set({
+    ...lifeState(snap.form, snap.atman),
+    life: snap.life,
+    atman: snap.atman,
+    journal: snap.journal,
+  });
+}
+
 export function toggleMute() {
   setMuted(!state.muted);
   set({ muted: !state.muted });

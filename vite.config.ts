@@ -12,4 +12,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Set VITE_BASE_PATH (e.g. "/laws-of-karma/") when building a static export for a
+  // GitHub Pages *project* page, where the site is served from a subdirectory instead
+  // of the domain root. Read back in src/router.tsx as import.meta.env.BASE_URL.
+  vite: {
+    base: process.env.VITE_BASE_PATH || "/",
+  },
 });

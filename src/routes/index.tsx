@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect } from "react";
 import { AuditOverlay, DialogueOverlay, HUD, IntroOverlay, JournalOverlay, MokshaOverlay, PerformanceOverlay } from "@/components/game/Overlays";
 import { bindKeyboard } from "@/game/input";
-import { tick, toggleJournal, useGame } from "@/game/store";
+import { resumeSoul, tick, toggleJournal, useGame } from "@/game/store";
+import { loadSoul, saveSoul } from "@/game/cloud";
 import { sfx } from "@/game/audio";
 
 const GameCanvas = lazy(() => import("@/components/game/GameCanvas"));
@@ -40,6 +41,23 @@ function LawsOfKarma() {
       clearInterval(id);
     };
   }, []);
+
+  // Resume a soul saved from a previous visit, if a cloud backend is configured.
+  useEffect(() => {
+    let cancelled = false;
+    void loadSoul().then((snap) => {
+      if (!cancelled && snap) resumeSoul(snap);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Checkpoint the soul's journey to the cloud whenever a life closes out.
+  useEffect(() => {
+    if (s.phase !== "AUDIT" && s.phase !== "MOKSHA") return;
+    void saveSoul({ life: s.life, form: s.form, atman: s.atman, journal: s.journal });
+  }, [s.phase]);
 
   return (
     <div className="fixed inset-0 bg-[oklch(0.12_0.05_290)]">

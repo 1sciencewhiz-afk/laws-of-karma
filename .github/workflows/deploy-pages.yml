@@ -1,0 +1,77 @@
+name: Deploy to GitHub Pages
+
+# This builds the game as a static, client-only bundle (the game's one route
+# already runs with ssr: false) and publishes it to GitHub Pages. Supabase
+# cloud save still works from a static page — it's just a REST/WebSocket API
+# called from the browser — as long as the two secrets below are set.
+#
+# Setup:
+#   1. Settings → Pages → Build and deployment → Source: "GitHub Actions".
+#   2. (Optional, for cloud save) Settings → Secrets and variables → Actions,
+#      add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. Leave them unset to
+#      ship without a backend — the game plays fine locally either way.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build static site
+        env:
+          # A project page (<owner>.github.io/<repo>/) is served from a
+          # subdirectory; a user/org page (<owner>.github.io/) is served from
+          # the domain root and needs no base path.
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: bun run build
+
+      - name: Locate the static output directory
+        id: out
+        run: |
+          if [ -d .output/public ]; then
+            echo "dir=.output/public" >> "$GITHUB_OUTPUT"
+          elif [ -d dist/client ]; then
+            echo "dir=dist/client" >> "$GITHUB_OUTPUT"
+          elif [ -d dist ]; then
+            echo "dir=dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "No static output directory found after build" >&2
+            exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.out.outputs.dir }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
